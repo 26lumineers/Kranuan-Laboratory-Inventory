@@ -1,56 +1,97 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import React, {
+    forwardRef,
+    useEffect,
+    useImperativeHandle,
+    useRef,
+    useState,
+} from 'react';
 import { usePopper } from 'react-popper';
 
-const Dropdown = (props: any, forwardedRef: any) => {
-    const [visibility, setVisibility] = useState<any>(false);
-
-    const referenceRef = useRef<any>(null);
-    const popperRef = useRef<any>(null);
-
-    const { styles, attributes } = usePopper(referenceRef.current, popperRef.current, {
-        placement: props.placement || 'bottom-end',
-        modifiers: [
-            {
-                name: 'offset',
-                options: {
-                    offset: props.offset || [0],
-                },
-            },
-        ],
-    });
-
-    const handleDocumentClick = (event: any) => {
-        if (referenceRef.current.contains(event.target) || popperRef.current.contains(event.target)) {
-            return;
-        }
-
-        setVisibility(false);
-    };
-
-    useEffect(() => {
-        document.addEventListener('mousedown', handleDocumentClick);
-        return () => {
-            document.removeEventListener('mousedown', handleDocumentClick);
-        };
-    }, []);
-
-    useImperativeHandle(forwardedRef, () => ({
-        close() {
-            setVisibility(false);
-        },
-    }));
-
-    return (
-        <>
-            <button ref={referenceRef} type="button" className={props.btnClassName} onClick={() => setVisibility(!visibility)}>
-                {props.button}
-            </button>
-
-            <div ref={popperRef} style={styles.popper} {...attributes.popper} className="z-50" onClick={() => setVisibility(!visibility)}>
-                {visibility && props.children}
-            </div>
-        </>
-    );
+type DropdownHandle = {
+    close: () => void;
 };
 
-export default forwardRef(Dropdown);
+type DropdownProps = {
+    placement?: any;
+    offset?: [number, number];
+    btnClassName?: string;
+    button: React.ReactNode;
+    children: React.ReactNode;
+};
+
+const Dropdown = forwardRef<DropdownHandle, DropdownProps>(
+    ({ placement = 'bottom-end', offset = [0, 8], btnClassName, button, children }, ref) => {
+        const [visible, setVisible] = useState(false);
+
+        const referenceRef = useRef<HTMLButtonElement | null>(null);
+        const popperRef = useRef<HTMLDivElement | null>(null);
+
+        const { styles, attributes } = usePopper(
+            referenceRef.current,
+            popperRef.current,
+            {
+                placement,
+                modifiers: [
+                    {
+                        name: 'offset',
+                        options: { offset },
+                    },
+                ],
+            }
+        );
+
+        const handleDocumentClick = (event: MouseEvent) => {
+            const target = event.target as Node;
+
+            if (
+                referenceRef.current?.contains(target) ||
+                popperRef.current?.contains(target)
+            ) {
+                return;
+            }
+
+            setVisible(false);
+        };
+
+        useEffect(() => {
+            document.addEventListener('mousedown', handleDocumentClick);
+            return () => {
+                document.removeEventListener('mousedown', handleDocumentClick);
+            };
+        }, []);
+
+        useImperativeHandle(ref, () => ({
+            close() {
+                setVisible(false);
+            },
+        }));
+
+        return (
+            <>
+                <button
+                    ref={referenceRef}
+                    type="button"
+                    className={btnClassName}
+                    onClick={() => setVisible((prev) => !prev)}
+                >
+                    {button}
+                </button>
+
+                {visible && (
+                    <div
+                        ref={popperRef}
+                        style={styles.popper}
+                        {...attributes.popper}
+                        className="z-50"
+                    >
+                        {children}
+                    </div>
+                )}
+            </>
+        );
+    }
+);
+
+Dropdown.displayName = 'Dropdown';
+
+export default Dropdown;
