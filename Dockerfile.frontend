@@ -2,13 +2,14 @@ FROM oven/bun:1
 
 WORKDIR /app
 
-# Copy only manifests required by the frontend workspace.
+# Copy workspace manifests first for better install layer caching.
 COPY package.json bun.lock tsconfig.json ./
 COPY apps/web/package.json ./apps/web/
+COPY apps/server/package.json ./apps/server/
 COPY packages/shared/package.json ./packages/shared/
+COPY packages/db/package.json ./packages/db/
 
-# Use a regular install to avoid local lockfile hard-failures during Docker builds.
-RUN bun install
+RUN bun install --frozen-lockfile
 
 COPY apps/web ./apps/web
 COPY packages/shared ./packages/shared
