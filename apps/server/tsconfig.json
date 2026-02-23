@@ -1,19 +1,24 @@
 {
-    "compilerOptions": {
-        "target": "ES2022",
-        "module": "ESNext",
-        "moduleResolution": "bundler",
-        "strict": true,
-        "esModuleInterop": true,
-        "skipLibCheck": true,
-        "noEmit": true,
-        "rootDir": "./src",
-        "baseUrl": ".",
-        "paths": {
-            "@laboratory/db": ["../../packages/db/src"],
-            "@laboratory/shared": ["../../packages/shared/src"]
-        }
-    },
-    "include": ["src/**/*"],
-    "exclude": ["node_modules"]
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+
+    "rootDir": "../../",
+    "baseUrl": ".",
+    "paths": {
+      "@laboratory/db": ["../../packages/db/src"],
+      "@laboratory/shared": ["../../packages/shared/src"]
+    }
+  },
+  "include": [
+    "src",
+    "../../packages/db/src",
+    "../../packages/shared/src"
+  ],
+  "exclude": ["node_modules"]
 }
