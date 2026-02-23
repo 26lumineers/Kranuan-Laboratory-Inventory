@@ -1,0 +1,23 @@
+{
+    "name": "laboratory-inventory",
+    "private": true,
+    "workspaces": [
+        "apps/*",
+        "packages/*"
+    ],
+    "scripts": {
+        "dev": "concurrently \"npm run dev:server\" \"npm run dev:web\"",
+        "dev:server": "npm run dev --workspace=@laboratory/server",
+        "dev:web": "npm run dev --workspace=@laboratory/web",
+        "build": "npm run build --workspace=@laboratory/web && npm run build --workspace=@laboratory/server",
+        "db:generate": "npm run generate --workspace=@laboratory/db",
+        "db:migrate": "npm run migrate --workspace=@laboratory/db",
+        "db:push": "npm run push --workspace=@laboratory/db",
+        "lint": "npm run lint --workspaces",
+        "typecheck": "npm run typecheck --workspaces"
+    },
+    "devDependencies": {
+        "concurrently": "^8.2.2",
+        "typescript": "^5.3.3"
+    }
+}
