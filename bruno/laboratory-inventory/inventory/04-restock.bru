@@ -1,0 +1,23 @@
+meta {
+  name: Restock Inventory
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/inventory/restock
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "productId": "{{productId}}",
+    "quantity": {{restockQty}},
+    "userId": "{{userId}}"
+  }
+}
