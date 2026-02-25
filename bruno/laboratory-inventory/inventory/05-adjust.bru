@@ -1,0 +1,24 @@
+meta {
+  name: Adjust Inventory
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/inventory/adjust
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "productId": "{{productId}}",
+    "quantity": {{adjustQty}},
+    "reason": "{{adjustReason}}",
+    "userId": "{{userId}}"
+  }
+}
