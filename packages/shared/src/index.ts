@@ -24,3 +24,30 @@ export interface CreateOrderRequest {
     items: CreateOrderItem[];
     note?: string;
 }
+
+
+export type RegisterRole = 'ADMIN' | 'GENERAL';
+
+export interface RegisterRequest {
+    email: string;
+    password: string;
+    fullName: string;
+    nickname?: string;
+    role: RegisterRole;
+    roomId?: string;
+}
+
+export interface RegisterResponse {
+    success: boolean;
+    data?: {
+        id: string;
+        email: string;
+        fullName: string;
+        nickname: string | null;
+        role: UserRole;
+        roomId: string | null;
+        isActive: boolean | null;
+        createdAt: Date | null;
+    };
+    error?: 'EMAIL_ALREADY_REGISTERED';
+}
