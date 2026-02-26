@@ -13,6 +13,8 @@ export const users = pgTable(
     'users',
     {
         id: uuid('id').primaryKey().defaultRandom(),
+        email: varchar('email', { length: 255 }).notNull().unique(),
+        passwordHash: varchar('password_hash', { length: 255 }).notNull(),
         fullName: varchar('full_name', { length: 150 }).notNull(),
         nickname: varchar('nickname', { length: 100 }),
         role: userRoleEnum('role').notNull(),
