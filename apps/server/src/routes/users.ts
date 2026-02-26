@@ -75,7 +75,7 @@ export const userRoutes = new Elysia({ prefix: '/users' })
                         role: t.Union([t.Literal('SUPERADMIN'), t.Literal('ADMIN'), t.Literal('GENERAL')]),
                         roomId: t.Union([t.String({ format: 'uuid' }), t.Null()]),
                         isActive: t.Union([t.Boolean(), t.Null()]),
-                        createdAt: t.Union([t.String({ format: 'date-time' }), t.Null()]),
+                        createdAt: t.Union([t.Date(), t.Null()]),
                     }),
                 }),
                 409: t.Object({

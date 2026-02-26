@@ -47,7 +47,7 @@ export interface RegisterResponse {
         role: UserRole;
         roomId: string | null;
         isActive: boolean | null;
-        createdAt: string | null;
+        createdAt: Date | null;
     };
     error?: 'EMAIL_ALREADY_REGISTERED';
 }

@@ -1,6 +1,6 @@
 import { db, users } from '@laboratory/db';
 import { eq } from 'drizzle-orm';
-import { randomBytes, scryptSync } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import type { RegisterRequest } from '@laboratory/shared';
 
 export type RegisterUserPayload = RegisterRequest;
@@ -16,7 +16,7 @@ export type RegisterUserResult =
               role: 'SUPERADMIN' | 'ADMIN' | 'GENERAL';
               roomId: string | null;
               isActive: boolean | null;
-              createdAt: string | null;
+              createdAt: Date | null;
           };
       }
     | {
@@ -24,19 +24,11 @@ export type RegisterUserResult =
           error: 'EMAIL_ALREADY_REGISTERED';
       };
 
-const normalizeEmail = (email: string) => email.trim().toLowerCase();
-
-const hashPassword = (password: string) => {
-    const salt = randomBytes(16).toString('hex');
-    const derivedKey = scryptSync(password, salt, 64).toString('hex');
-    return `${salt}:${derivedKey}`;
-};
+const hashPassword = (password: string) => createHash('sha256').update(password).digest('hex');
 
 export const registerUser = async (payload: RegisterUserPayload): Promise<RegisterUserResult> => {
-    const normalizedEmail = normalizeEmail(payload.email);
-
     return db.transaction(async (tx) => {
-        const [existingUser] = await tx.select({ id: users.id }).from(users).where(eq(users.email, normalizedEmail));
+        const [existingUser] = await tx.select({ id: users.id }).from(users).where(eq(users.email, payload.email));
 
         if (existingUser) {
             return { success: false, error: 'EMAIL_ALREADY_REGISTERED' };
@@ -45,7 +37,7 @@ export const registerUser = async (payload: RegisterUserPayload): Promise<Regist
         const [createdUser] = await tx
             .insert(users)
             .values({
-                email: normalizedEmail,
+                email: payload.email,
                 passwordHash: hashPassword(payload.password),
                 fullName: payload.fullName,
                 nickname: payload.nickname,
@@ -65,10 +57,7 @@ export const registerUser = async (payload: RegisterUserPayload): Promise<Regist
 
         return {
             success: true,
-            data: {
-                ...createdUser,
-                createdAt: createdUser.createdAt ? createdUser.createdAt.toISOString() : null,
-            },
+            data: createdUser,
         };
     });
 };
