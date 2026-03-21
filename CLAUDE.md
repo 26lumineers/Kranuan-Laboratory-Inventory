@@ -226,3 +226,5 @@ The agent should suggest:
 -   Performance improvements.
 
 But must not refactor unrelated code without request.
+## 19. Project structure
+- refactor that follow this repo https://github.com/AzouKr/typescript-clean-architecture
