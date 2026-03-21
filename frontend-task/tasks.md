@@ -1,0 +1,1 @@
+- dashboard page add section that show which item in ratio i config im yaml file in percentage so i can view which item are going out of stock amd add another section show that which one is out of stock
