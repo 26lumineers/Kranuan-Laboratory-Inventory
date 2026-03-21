@@ -8,6 +8,7 @@ The goal is consistency, scalability, and production-readiness.
 
 -   can create file, but don't remove anything on my computers.
 - read opencode.md first for get better context
+- add log for each request are coming and telling whats is user doing thats i can toggle it will be json format or not
 ---
 
 ## 1. Core Principles
