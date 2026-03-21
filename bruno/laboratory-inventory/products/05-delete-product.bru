@@ -1,0 +1,15 @@
+meta {
+  name: Delete Product (Soft Delete)
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{baseUrl}}/products/{{productId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}

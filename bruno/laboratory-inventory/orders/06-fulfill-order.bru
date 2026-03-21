@@ -1,0 +1,26 @@
+meta {
+  name: Fulfill Order
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/orders/{{orderId}}/fulfill
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "items": [
+      {
+        "itemId": "{{orderItemId}}",
+        "fulfilledQuantity": 5
+      }
+    ]
+  }
+}

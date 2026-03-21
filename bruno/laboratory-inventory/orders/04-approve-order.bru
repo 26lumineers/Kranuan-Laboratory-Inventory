@@ -1,0 +1,21 @@
+meta {
+  name: Approve Order
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/orders/{{orderId}}/approve
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "adminNote": "Approved for processing"
+  }
+}

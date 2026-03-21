@@ -1,0 +1,22 @@
+meta {
+  name: Create Room
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/rooms
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "name": "Chemical Lab",
+    "description": "Chemical analysis laboratory"
+  }
+}

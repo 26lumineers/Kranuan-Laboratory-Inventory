@@ -1,24 +1,23 @@
 meta {
   name: Adjust Inventory
   type: http
-  seq: 5
+  seq: 4
 }
 
 post {
   url: {{baseUrl}}/inventory/adjust
   body: json
-  auth: none
+  auth: bearer
 }
 
-headers {
-  Content-Type: application/json
+auth:bearer {
+  token: {{token}}
 }
 
 body:json {
   {
     "productId": "{{productId}}",
     "quantity": {{adjustQty}},
-    "reason": "{{adjustReason}}",
-    "userId": "{{userId}}"
+    "reason": "{{adjustReason}}"
   }
 }

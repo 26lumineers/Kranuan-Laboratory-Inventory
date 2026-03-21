@@ -1,0 +1,19 @@
+meta {
+  name: Daily Report
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/reports/daily
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+query {
+  date: 2026-03-22
+}

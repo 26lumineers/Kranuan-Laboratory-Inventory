@@ -1,11 +1,15 @@
 meta {
   name: List Low Stock
   type: http
-  seq: 3
+  seq: 2
 }
 
 get {
   url: {{baseUrl}}/inventory/low-stock
   body: none
-  auth: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
 }

@@ -1,0 +1,24 @@
+meta {
+  name: Update Product
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/products/{{productId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "name": "Updated Product Name",
+    "unit": "box",
+    "description": "Updated description",
+    "lowStockThreshold": 5
+  }
+}

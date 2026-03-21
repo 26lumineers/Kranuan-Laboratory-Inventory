@@ -1,0 +1,19 @@
+meta {
+  name: Stock Ratio
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/dashboard/stock-ratio
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+query {
+  status: warning
+}

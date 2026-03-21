@@ -1,0 +1,15 @@
+meta {
+  name: List Unread Notifications
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/notifications/unread
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}

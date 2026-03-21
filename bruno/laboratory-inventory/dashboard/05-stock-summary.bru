@@ -1,0 +1,15 @@
+meta {
+  name: Stock Summary by Status
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/dashboard/stock-summary
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}

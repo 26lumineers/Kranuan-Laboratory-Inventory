@@ -1,0 +1,22 @@
+meta {
+  name: Update Room
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/rooms/{{roomId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "name": "Updated Room Name",
+    "description": "Updated room description"
+  }
+}

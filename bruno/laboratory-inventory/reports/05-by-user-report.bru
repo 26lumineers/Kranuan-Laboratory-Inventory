@@ -1,0 +1,20 @@
+meta {
+  name: Report by User
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/reports/by-user
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+query {
+  startDate: 2026-03-01
+  endDate: 2026-03-22
+}

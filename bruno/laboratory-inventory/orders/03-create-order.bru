@@ -1,0 +1,29 @@
+meta {
+  name: Create Order
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/orders
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "roomId": "{{roomId}}",
+    "note": "Order note",
+    "items": [
+      {
+        "productId": "{{productId}}",
+        "quantity": 5,
+        "note": "Item note"
+      }
+    ]
+  }
+}

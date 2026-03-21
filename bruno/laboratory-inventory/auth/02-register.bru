@@ -1,22 +1,18 @@
 meta {
-  name: Register User (ADMIN/GENERAL)
+  name: Register
   type: http
-  seq: 1
+  seq: 2
 }
 
 post {
-  url: {{baseUrl}}/users/register
+  url: {{baseUrl}}/auth/register
   body: json
   auth: none
 }
 
-headers {
-  Content-Type: application/json
-}
-
 body:json {
   {
-    "email": "{{registerEmail}}",
+    "username": "{{registerUsername}}",
     "password": "{{registerPassword}}",
     "fullName": "{{registerFullName}}",
     "nickname": "{{registerNickname}}",

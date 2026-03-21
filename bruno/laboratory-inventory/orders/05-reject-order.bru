@@ -1,0 +1,21 @@
+meta {
+  name: Reject Order
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/orders/{{orderId}}/reject
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "adminNote": "Insufficient stock"
+  }
+}

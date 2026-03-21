@@ -1,0 +1,15 @@
+meta {
+  name: Out of Stock Items
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/dashboard/out-of-stock
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}

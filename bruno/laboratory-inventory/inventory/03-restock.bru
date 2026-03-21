@@ -1,23 +1,22 @@
 meta {
   name: Restock Inventory
   type: http
-  seq: 4
+  seq: 3
 }
 
 post {
   url: {{baseUrl}}/inventory/restock
   body: json
-  auth: none
+  auth: bearer
 }
 
-headers {
-  Content-Type: application/json
+auth:bearer {
+  token: {{token}}
 }
 
 body:json {
   {
     "productId": "{{productId}}",
-    "quantity": {{restockQty}},
-    "userId": "{{userId}}"
+    "quantity": {{restockQty}}
   }
 }
