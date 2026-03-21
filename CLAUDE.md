@@ -7,7 +7,7 @@ The goal is consistency, scalability, and production-readiness.
 ## instruction
 
 -   can create file, but don't remove anything on my computers.
-
+- read opencode.md first for get better context
 ---
 
 ## 1. Core Principles
