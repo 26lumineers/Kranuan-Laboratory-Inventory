@@ -13,8 +13,13 @@ export const users = pgTable(
     'users',
     {
         id: uuid('id').primaryKey().defaultRandom(),
+<<<<<<< HEAD
         email: varchar('email', { length: 255 }).notNull().unique(),
         passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+=======
+        username: varchar('username', { length: 100 }).notNull().unique(),
+        password: varchar('password', { length: 255 }).notNull(),
+>>>>>>> d9a9557 (update code)
         fullName: varchar('full_name', { length: 150 }).notNull(),
         nickname: varchar('nickname', { length: 100 }),
         role: userRoleEnum('role').notNull(),
@@ -25,6 +30,7 @@ export const users = pgTable(
     (table) => ({
         roomIdx: index('idx_users_room').on(table.roomId),
         roleIdx: index('idx_users_role').on(table.role),
+        usernameIdx: index('idx_users_username').on(table.username),
     })
 );
 

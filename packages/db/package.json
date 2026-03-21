@@ -8,9 +8,11 @@
         "generate": "drizzle-kit generate",
         "migrate": "drizzle-kit migrate",
         "push": "drizzle-kit push",
-        "studio": "drizzle-kit studio"
+        "studio": "drizzle-kit studio",
+        "seed": "bun run src/seed.ts"
     },
     "dependencies": {
+        "argon2": "^0.44.0",
         "drizzle-orm": "^0.29.3",
         "postgres": "^3.4.3"
     },

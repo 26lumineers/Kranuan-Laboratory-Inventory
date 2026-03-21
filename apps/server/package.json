@@ -10,12 +10,13 @@
         "typecheck": "tsc --noEmit"
     },
     "dependencies": {
-        "@laboratory/db": "workspace:*",
-        "@laboratory/shared": "workspace:*",
-        "elysia": "^1.0.2",
         "@elysiajs/cors": "^1.0.2",
         "@elysiajs/jwt": "^1.0.2",
-        "@elysiajs/swagger": "^1.0.3"
+        "@elysiajs/swagger": "^1.0.3",
+        "@laboratory/db": "workspace:*",
+        "@laboratory/shared": "workspace:*",
+        "argon2": "^0.44.0",
+        "elysia": "^1.0.2"
     },
     "devDependencies": {
         "@types/node": "^20.11.5",

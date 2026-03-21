@@ -59,7 +59,7 @@ show - item name - item unit - how many still available, what number that are tr
 # Backend
 
 - use Elysia Bun Ts with Eden and drizzle orm
-
+- use argon2 for hash password
 ## Monorepo Conventions
 
 - Import shared modules using workspace names: `Laboratory Inventory`

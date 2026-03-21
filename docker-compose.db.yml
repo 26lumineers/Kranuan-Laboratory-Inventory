@@ -3,15 +3,17 @@ services:
     image: postgres:18
     container_name: lab_postgres
     restart: unless-stopped
-    env_file:
-      - .env
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: laboratory_inventory
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
       - ./init:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB || exit 1"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d laboratory_inventory || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -24,8 +26,36 @@ services:
         reservations:
           memory: 256M
 
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: lab_pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@lab.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_LISTEN_PORT: 5050
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "5050:5050"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - lab_network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+
 volumes:
   postgres_data:
+  pgadmin_data:
 
 networks:
   lab_network:
+    driver: bridge

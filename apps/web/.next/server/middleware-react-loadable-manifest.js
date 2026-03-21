@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST={"index.tsx -> react-apexcharts":{"id":"index.tsx -> react-apexcharts","files":["static/chunks/node_modules_react-apexcharts_dist_react-apexcharts_esm_js.js"]}}
+self.__REACT_LOADABLE_MANIFEST={}
