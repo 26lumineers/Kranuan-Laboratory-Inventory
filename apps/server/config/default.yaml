@@ -1,46 +1,30 @@
-# Default configuration for Laboratory Inventory API
+# Laboratory Inventory API - Default Configuration
+# Override values in development.yaml or production.yaml
 
 server:
-  port: ${PORT:3001}
-  host: ${HOST:0.0.0.0}
+  port: 3001
+  host: "0.0.0.0"
 
 database:
-  host: ${DB_HOST:localhost}
-  port: ${DB_PORT:5432}
-  name: ${DB_NAME:laboratory_inventory}
-  user: ${DB_USER:postgres}
-  password: ${DB_PASSWORD:postgres}
-  # Full URL takes precedence over individual fields if set
-  url: ${DATABASE_URL:}
+  host: "localhost"
+  port: 5432
+  name: "laboratory_inventory"
+  user: "postgres"
+  password: "postgres"
+  url: ""
   poolSize: 10
   ssl: false
 
 jwt:
-  secret: ${JWT_SECRET:laboratory-inventory-secret-key-2024}
-  expiresIn: 7200  # 2 hours in seconds
-  # Algorithm: RS256 (RSA with SHA-256) or RS512 (RSA with SHA-512)
-  algorithm: ${JWT_ALGORITHM:RS256}
-  # Paths to PEM key files (relative to project root or absolute)
-  # Default: ./keys/private-rs256.pem and ./keys/public-rs256.pem
-  privateKeyPath: ${JWT_PRIVATE_KEY_PATH:}
-  publicKeyPath: ${JWT_PUBLIC_KEY_PATH:}
-
-# Dashboard stock ratio configuration
-dashboard:
-  stock:
-    # Warning levels as percentages of threshold
-    # Example: if threshold is 10 and warning is 50%, alert when stock <= 5
-    warningLevel: ${STOCK_WARNING_LEVEL:50}    # Yellow warning (50% of threshold)
-    criticalLevel: ${STOCK_CRITICAL_LEVEL:25}  # Red critical (25% of threshold)
-    outOfStockLevel: ${STOCK_OUT_LEVEL:0}      # Out of stock (0%)
-  alerts:
-    enableLowStock: ${ENABLE_LOW_STOCK_ALERTS:true}
-    enableOutOfStock: ${ENABLE_OUT_OF_STOCK_ALERTS:true}
+  secret: "laboratory-inventory-secret-key-2024"
+  expiresIn: 7200
+  algorithm: "RS256"
+  privateKeyPath: "keys/private-rs256.pem"
+  publicKeyPath: "keys/public-rs256.pem"
 
 logging:
   jsonFormat: false
-  level: info
-  # Log requests in JSON format
+  level: "info"
   requests: true
 
 cors:
@@ -56,3 +40,12 @@ cors:
   headers:
     - Content-Type
     - Authorization
+
+dashboard:
+  stock:
+    warningLevel: 50
+    criticalLevel: 25
+    outOfStockLevel: 0
+  alerts:
+    enableLowStock: true
+    enableOutOfStock: true

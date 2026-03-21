@@ -1,31 +1,24 @@
-# Production environment configuration
+# Production Configuration
+# Only override values that differ from default.yaml
 
 server:
-  host: 0.0.0.0
+  host: "0.0.0.0"
 
 database:
   ssl: true
   poolSize: 20
 
 jwt:
-  # Use RS512 (RSA 4096-bit with SHA-512) for production
-  algorithm: ${JWT_ALGORITHM:RS512}
+  algorithm: "RS512"
+  privateKeyPath: "keys/private-rs512.pem"
+  publicKeyPath: "keys/public-rs512.pem"
 
 logging:
   jsonFormat: true
-  level: info
+  level: "info"
   requests: false
 
 cors:
   enabled: true
   origins:
-    - ${CORS_ORIGIN}
-  methods:
-    - GET
-    - POST
-    - PUT
-    - DELETE
-    - OPTIONS
-  headers:
-    - Content-Type
-    - Authorization
+    - "https://your-domain.com"

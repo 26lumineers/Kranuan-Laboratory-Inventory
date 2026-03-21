@@ -21,15 +21,6 @@ export type RegisterPayload = {
 
 export type AuthUser = Omit<User, 'password'>;
 
-export type JwtAlgorithm = 'RS256' | 'RS512';
-
-interface JwtConfig {
-    algorithm: JwtAlgorithm;
-    expiresIn: number;
-    privateKeyPath?: string;
-    publicKeyPath?: string;
-}
-
 interface JwtPayload {
     userId: string;
     username: string;
@@ -38,38 +29,26 @@ interface JwtPayload {
     exp: number;
 }
 
-// Keys directory - PEM files should be placed here
-const keysDir = join(process.cwd(), 'keys');
-
-// Get JWT config from config file
-const getJwtConfig = (): JwtConfig => ({
-    algorithm: (config.jwt as { algorithm?: JwtAlgorithm }).algorithm || 'RS256',
-    expiresIn: config.jwt.expiresIn,
-    privateKeyPath: (config.jwt as { privateKeyPath?: string }).privateKeyPath,
-    publicKeyPath: (config.jwt as { publicKeyPath?: string }).publicKeyPath,
-});
-
 // Get RSA keys from PEM files
 async function getRsaKeys(): Promise<{ privateKey: CryptoKey; publicKey: CryptoKey }> {
-    const jwtConfig = getJwtConfig();
-    const algorithm = jwtConfig.algorithm;
+    const { algorithm, privateKeyPath, publicKeyPath } = config.jwt;
     const hash = algorithm === 'RS512' ? 'SHA-512' : 'SHA-256';
 
-    // Determine key file paths
-    const privateKeyPath = jwtConfig.privateKeyPath || join(keysDir, `private-${algorithm.toLowerCase()}.pem`);
-    const publicKeyPath = jwtConfig.publicKeyPath || join(keysDir, `public-${algorithm.toLowerCase()}.pem`);
+    // Resolve paths (relative to cwd or absolute)
+    const privateKeyAbs = privateKeyPath.startsWith('/') ? privateKeyPath : join(process.cwd(), privateKeyPath);
+    const publicKeyAbs = publicKeyPath.startsWith('/') ? publicKeyPath : join(process.cwd(), publicKeyPath);
 
     // Check if key files exist
-    if (!existsSync(privateKeyPath)) {
-        throw new Error(`Private key file not found: ${privateKeyPath}. Please generate RSA keys using: openssl genrsa -out ${privateKeyPath} ${algorithm === 'RS512' ? 4096 : 2048}`);
+    if (!existsSync(privateKeyAbs)) {
+        throw new Error(`Private key not found: ${privateKeyAbs}`);
     }
-    if (!existsSync(publicKeyPath)) {
-        throw new Error(`Public key file not found: ${publicKeyPath}. Please generate public key using: openssl rsa -in ${privateKeyPath} -pubout -out ${publicKeyPath}`);
+    if (!existsSync(publicKeyAbs)) {
+        throw new Error(`Public key not found: ${publicKeyAbs}`);
     }
 
     // Read PEM files
-    const privateKeyPem = readFileSync(privateKeyPath, 'utf-8');
-    const publicKeyPem = readFileSync(publicKeyPath, 'utf-8');
+    const privateKeyPem = readFileSync(privateKeyAbs, 'utf-8');
+    const publicKeyPem = readFileSync(publicKeyAbs, 'utf-8');
 
     // Import keys
     const privateKey = await crypto.subtle.importKey(
@@ -133,8 +112,7 @@ export const verifyPassword = async (password: string, hashedPassword: string): 
 };
 
 export const generateToken = async (user: AuthUser): Promise<string> => {
-    const jwtConfig = getJwtConfig();
-    const algorithm = jwtConfig.algorithm;
+    const { algorithm, expiresIn } = config.jwt;
     const now = Math.floor(Date.now() / 1000);
 
     // JWT Header
@@ -149,7 +127,7 @@ export const generateToken = async (user: AuthUser): Promise<string> => {
         username: user.username,
         role: user.role,
         iat: now,
-        exp: now + jwtConfig.expiresIn,
+        exp: now + expiresIn,
     };
 
     // Encode header and payload

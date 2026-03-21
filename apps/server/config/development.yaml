@@ -1,5 +1,7 @@
-# Development environment configuration
+# Development Configuration
+# Only override values that differ from default.yaml
 
 logging:
   jsonFormat: false
-  level: debug
+  level: "debug"
+  requests: true

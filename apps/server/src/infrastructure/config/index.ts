@@ -2,186 +2,123 @@ import { parse } from 'yaml';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
-export interface ServerConfig {
-    port: number;
-    host: string;
-}
-
-export interface DatabaseConfig {
-    host: string;
-    port: number;
-    name: string;
-    user: string;
-    password: string;
-    url: string;
-    poolSize: number;
-    ssl: boolean;
-}
+// =============================================================================
+// Config Types
+// =============================================================================
 
 export type JwtAlgorithm = 'RS256' | 'RS512';
 
-export interface JwtConfig {
-    secret: string;
-    expiresIn: number;
-    algorithm: JwtAlgorithm;
-    privateKey?: string;
-    publicKey?: string;
-}
-
-export interface LoggingConfig {
-    jsonFormat: boolean;
-    level: string;
-    requests: boolean;
-}
-
-export interface CorsConfig {
-    enabled: boolean;
-    origins: string[];
-    methods: string[];
-    headers: string[];
-}
-
-export interface DashboardStockConfig {
-    warningLevel: number;    // Percentage (e.g., 50 = 50% of threshold)
-    criticalLevel: number;   // Percentage (e.g., 25 = 25% of threshold)
-    outOfStockLevel: number; // Percentage (e.g., 0 = 0%)
-}
-
-export interface DashboardAlertsConfig {
-    enableLowStock: boolean;
-    enableOutOfStock: boolean;
-}
-
-export interface DashboardConfig {
-    stock: DashboardStockConfig;
-    alerts: DashboardAlertsConfig;
-}
-
 export interface Config {
-    server: ServerConfig;
-    database: DatabaseConfig;
-    jwt: JwtConfig;
-    logging: LoggingConfig;
-    cors: CorsConfig;
-    dashboard: DashboardConfig;
+    server: {
+        port: number;
+        host: string;
+    };
+    database: {
+        host: string;
+        port: number;
+        name: string;
+        user: string;
+        password: string;
+        url: string;
+        poolSize: number;
+        ssl: boolean;
+    };
+    jwt: {
+        secret: string;
+        expiresIn: number;
+        algorithm: JwtAlgorithm;
+        privateKeyPath: string;
+        publicKeyPath: string;
+    };
+    logging: {
+        jsonFormat: boolean;
+        level: string;
+        requests: boolean;
+    };
+    cors: {
+        enabled: boolean;
+        origins: string[];
+        methods: string[];
+        headers: string[];
+    };
+    dashboard: {
+        stock: {
+            warningLevel: number;
+            criticalLevel: number;
+            outOfStockLevel: number;
+        };
+        alerts: {
+            enableLowStock: boolean;
+            enableOutOfStock: boolean;
+        };
+    };
 }
 
-/**
- * Substitute environment variables in a string
- * Format: ${ENV_VAR:default_value}
- */
-function substituteEnvVars(value: string): string {
-    const envVarPattern = /\$\{([^}:]+)(?::([^}]*))?\}/g;
+// =============================================================================
+// Config Loader
+// =============================================================================
 
-    return value.replace(envVarPattern, (_, envVar, defaultValue) => {
-        const envValue = process.env[envVar];
-        if (envValue !== undefined) {
-            return envValue;
-        }
-        if (defaultValue !== undefined) {
-            return defaultValue;
-        }
-        return '';
-    });
+const env = process.env.NODE_ENV || 'development';
+const configDir = join(process.cwd(), 'config');
+
+// Load YAML file
+function loadYaml(filename: string): Config {
+    const path = join(configDir, filename);
+    if (!existsSync(path)) {
+        throw new Error(`Config file not found: ${path}`);
+    }
+    const content = readFileSync(path, 'utf-8');
+    return parse(content) as Config;
 }
 
-/**
- * Recursively substitute environment variables in an object
- */
-function substituteEnvVarsInObject(obj: unknown): unknown {
-    if (typeof obj === 'string') {
-        return substituteEnvVars(obj);
-    }
-    if (Array.isArray(obj)) {
-        return obj.map(substituteEnvVarsInObject);
-    }
-    if (obj !== null && typeof obj === 'object') {
-        const result: Record<string, unknown> = {};
-        for (const [key, value] of Object.entries(obj)) {
-            result[key] = substituteEnvVarsInObject(value);
-        }
-        return result;
-    }
-    return obj;
-}
-
-/**
- * Deep merge two objects
- */
-function deepMerge<T extends Record<string, unknown>>(target: T, source: Partial<T>): T {
+// Merge two objects (source overrides target)
+function merge<T extends object>(target: T, source: Partial<T>): T {
     const result = { ...target };
-    for (const key of Object.keys(source) as (keyof T)[]) {
-        const sourceValue = source[key];
-        const targetValue = target[key];
-        if (
-            sourceValue !== undefined &&
-            sourceValue !== null &&
-            typeof sourceValue === 'object' &&
-            !Array.isArray(sourceValue) &&
-            targetValue !== undefined &&
-            typeof targetValue === 'object' &&
-            !Array.isArray(targetValue)
-        ) {
-            result[key] = deepMerge(
-                targetValue as Record<string, unknown>,
-                sourceValue as Record<string, unknown>
-            ) as T[keyof T];
-        } else if (sourceValue !== undefined) {
-            result[key] = sourceValue as T[keyof T];
+    for (const key in source) {
+        const value = source[key];
+        if (value !== undefined) {
+            if (
+                typeof value === 'object' &&
+                value !== null &&
+                !Array.isArray(value) &&
+                typeof target[key] === 'object' &&
+                target[key] !== null
+            ) {
+                result[key] = merge(target[key] as object, value as object) as T[Extract<keyof T, string>];
+            } else {
+                result[key] = value as T[Extract<keyof T, string>];
+            }
         }
     }
     return result;
 }
 
-/**
- * Load and parse a YAML configuration file
- */
-function loadYamlFile(filePath: string): Record<string, unknown> {
-    if (!existsSync(filePath)) {
-        return {};
+// Load and merge configs
+const defaultConfig = loadYaml('default.yaml');
+const envConfig = existsSync(join(configDir, `${env}.yaml`)) ? loadYaml(`${env}.yaml`) : {};
+
+// Final config (env overrides default)
+export const config: Config = merge(defaultConfig, envConfig);
+
+// =============================================================================
+// Database URL Helper
+// =============================================================================
+
+export function getDatabaseUrl(): string {
+    if (config.database.url) {
+        return config.database.url;
     }
-    const content = readFileSync(filePath, 'utf-8');
-    return parse(content) || {};
+    const { host, port, name, user, password } = config.database;
+    return `postgres://${user}:${password}@${host}:${port}/${name}`;
 }
 
-/**
- * Get the database connection URL
- */
-export function getDatabaseUrl(config: DatabaseConfig): string {
-    // If full URL is provided, use it
-    if (config.url) {
-        return config.url;
-    }
-    // Otherwise, construct from individual fields
-    return `postgres://${config.user}:${config.password}@${config.host}:${config.port}/${config.name}`;
-}
+// =============================================================================
+// Startup Log
+// =============================================================================
 
-// Config directory path
-const configDir = join(process.cwd(), 'config');
-
-// Determine environment
-const env = process.env.NODE_ENV || 'development';
-
-// Load configuration files in order: default -> environment
-const defaultConfig = loadYamlFile(join(configDir, 'default.yaml'));
-const envConfig = loadYamlFile(join(configDir, `${env}.yaml`));
-
-// Merge configurations (environment overrides default)
-const mergedConfig = deepMerge(
-    defaultConfig as Record<string, unknown>,
-    envConfig as Record<string, unknown>
-);
-
-// Substitute environment variables
-const rawConfig = substituteEnvVarsInObject(mergedConfig) as Config;
-
-// Export the final configuration
-export const config: Config = rawConfig;
-
-// Log configuration on load (in development)
 if (env === 'development') {
-    console.log(`Loaded configuration for environment: ${env}`);
+    console.log(`Config loaded: ${env}`);
     console.log(`Server: ${config.server.host}:${config.server.port}`);
     console.log(`Database: ${config.database.host}:${config.database.port}/${config.database.name}`);
-    console.log(`JWT expires in: ${config.jwt.expiresIn}s`);
+    console.log(`JWT: ${config.jwt.algorithm}, expires in ${config.jwt.expiresIn}s`);
 }
