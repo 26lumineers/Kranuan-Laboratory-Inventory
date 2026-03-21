@@ -1,41 +1,189 @@
-version: "3.9"
+# Laboratory Inventory - Full Stack Docker Compose
+# Usage:
+#   Development: docker-compose up -d postgres pgadmin
+#   Production:  docker-compose --profile production up -d
+#   All services: docker-compose --profile dev up -d
 
 services:
+  # =====================
+  # DATABASE SERVICES
+  # =====================
+
   postgres:
-    image: postgres:16
-    container_name: lab_postgres
+    image: postgres:16-alpine
+    container_name: laboratory-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: laboratory_inventory
-      POSTGRES_USER: lab_user
-      POSTGRES_PASSWORD: strongpassword
+      POSTGRES_DB: ${DB_NAME:-laboratory_inventory}
+      POSTGRES_USER: ${DB_USER:-lab_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-strongpassword}
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U lab_user -d laboratory_inventory"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-lab_user} -d ${DB_NAME:-laboratory_inventory}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - laboratory-network
 
   pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: lab_pgadmin
+    container_name: laboratory-pgadmin
     restart: unless-stopped
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@lab.local
-      PGADMIN_DEFAULT_PASSWORD: strongpassword
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@lab.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-strongpassword}
+      PGADMIN_LISTEN_PORT: 5050
     ports:
-      - "5050:80"
+      - "${PGADMIN_PORT:-5050}:5050"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - laboratory-network
+
+  # =====================
+  # BACKEND SERVICE (Production)
+  # =====================
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    container_name: laboratory-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      HOST: 0.0.0.0
+      DATABASE_URL: postgres://${DB_USER:-lab_user}:${DB_PASSWORD:-strongpassword}@postgres:5432/${DB_NAME:-laboratory_inventory}
+      JWT_SECRET: ${JWT_SECRET:-laboratory-inventory-secret-key-change-in-production}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-laboratory_inventory}
+      DB_USER: ${DB_USER:-lab_user}
+      DB_PASSWORD: ${DB_PASSWORD:-strongpassword}
+    ports:
+      - "${BACKEND_PORT:-3001}:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - laboratory-network
+    profiles:
+      - production
+      - full
+
+  # =====================
+  # FRONTEND SERVICE (Production)
+  # =====================
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: laboratory-frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - laboratory-network
+    profiles:
+      - production
+      - full
+
+  # =====================
+  # DEVELOPMENT SERVICES
+  # =====================
+
+  backend-dev:
+    image: oven/bun:1
+    container_name: laboratory-backend-dev
+    restart: unless-stopped
+    working_dir: /app
     volumes:
-      - pgadmin_data:/var/lib/pgadmin
+      - .:/app
+      - bun_cache:/root/.bun
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      HOST: 0.0.0.0
+      DATABASE_URL: postgres://${DB_USER:-lab_user}:${DB_PASSWORD:-strongpassword}@postgres:5432/${DB_NAME:-laboratory_inventory}
+      JWT_SECRET: ${JWT_SECRET:-laboratory-inventory-secret-key-change-in-production}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-laboratory_inventory}
+      DB_USER: ${DB_USER:-lab_user}
+      DB_PASSWORD: ${DB_PASSWORD:-strongpassword}
+    ports:
+      - "${BACKEND_PORT:-3001}:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: bun run dev:server
+    networks:
+      - laboratory-network
+    profiles:
+      - dev
+
+  frontend-dev:
+    image: node:20-alpine
+    container_name: laboratory-frontend-dev
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - .:/app
+      - node_modules_cache:/app/node_modules
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      - backend-dev
+    command: sh -c "npm install && npm run dev:web"
+    networks:
+      - laboratory-network
+    profiles:
+      - dev
+
+# =====================
+# NETWORKS
+# =====================
+
+networks:
+  laboratory-network:
+    driver: bridge
+
+# =====================
+# VOLUMES
+# =====================
 
 volumes:
   postgres_data:
+    driver: local
   pgadmin_data:
+    driver: local
+  bun_cache:
+    driver: local
+  node_modules_cache:
+    driver: local

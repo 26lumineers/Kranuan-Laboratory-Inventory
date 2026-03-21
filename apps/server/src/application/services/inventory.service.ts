@@ -84,10 +84,13 @@ export const adjustInventory = async ({ productId, quantity, userId, reason }: A
 
         const [product] = await tx.select().from(products).where(eq(products.id, productId));
 
-        if (product && quantity <= product.lowStockThreshold) {
+        if (product && product.lowStockThreshold !== null && quantity <= product.lowStockThreshold) {
             await tx.insert(notifications).values({
+                type: 'LOW_STOCK',
                 title: 'Low Stock Alert',
                 message: `Product ${product.name} is running low (${quantity} remaining). Reason: ${reason}`,
+                targetRoles: 'SUPERADMIN,ADMIN',
+                productId,
             });
         }
 

@@ -17,7 +17,11 @@
 
 # misc
 .DS_Store
-*.pem
+
+# RSA private keys (NEVER commit these)
+keys/private-*.pem
+*.private.pem
+# Keep public keys allowed: keys/public-*.pem
 
 # debug
 npm-debug.log*

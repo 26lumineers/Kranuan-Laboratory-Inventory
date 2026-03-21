@@ -1,21 +1,33 @@
 import { Elysia, t } from 'elysia';
 import { db, products, type NewProduct } from '@laboratory/db';
+import { eq } from 'drizzle-orm';
+import { authenticateUser } from '../middleware/auth';
 
 export const productRoutes = new Elysia({ prefix: '/products' })
-    .get('/', async () => {
+    // List products - All authenticated users (they need to see products to order)
+    .get('/', async ({ headers }) => {
+        await authenticateUser(headers);
+        // All users can view products (needed to place orders)
         const result = await db.select().from(products);
         return result;
     })
-    .get('/:id', async ({ params }) => {
+    .get('/:id', async ({ params, headers }) => {
+        await authenticateUser(headers);
         const result = await db
             .select()
             .from(products)
-            .where(({ id }) => id.eq(params.id));
+            .where(eq(products.id, params.id));
         return result[0];
     })
+    // Create product - SUPERADMIN only
     .post(
         '/',
-        async ({ body }) => {
+        async ({ body, headers, set }) => {
+            const user = await authenticateUser(headers);
+            if (user.role !== 'SUPERADMIN') {
+                set.status = 403;
+                return { error: 'Only SUPERADMIN can create products' };
+            }
             const result = await db
                 .insert(products)
                 .values(body as NewProduct)
@@ -31,13 +43,19 @@ export const productRoutes = new Elysia({ prefix: '/products' })
             }),
         }
     )
+    // Update product - SUPERADMIN only
     .put(
         '/:id',
-        async ({ params, body }) => {
+        async ({ params, body, headers, set }) => {
+            const user = await authenticateUser(headers);
+            if (user.role !== 'SUPERADMIN') {
+                set.status = 403;
+                return { error: 'Only SUPERADMIN can update products' };
+            }
             const result = await db
                 .update(products)
                 .set(body)
-                .where(({ id }) => id.eq(params.id))
+                .where(eq(products.id, params.id))
                 .returning();
             return result[0];
         },
@@ -51,11 +69,17 @@ export const productRoutes = new Elysia({ prefix: '/products' })
             }),
         }
     )
-    .delete('/:id', async ({ params }) => {
+    // Delete product (soft delete) - SUPERADMIN only
+    .delete('/:id', async ({ params, headers, set }) => {
+        const user = await authenticateUser(headers);
+        if (user.role !== 'SUPERADMIN') {
+            set.status = 403;
+            return { error: 'Only SUPERADMIN can delete products' };
+        }
         const result = await db
             .update(products)
             .set({ isActive: false })
-            .where(({ id }) => id.eq(params.id))
+            .where(eq(products.id, params.id))
             .returning();
         return result[0];
     });

@@ -1,0 +1,5 @@
+# Development environment configuration
+
+logging:
+  jsonFormat: false
+  level: debug

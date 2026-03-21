@@ -1,11 +1,23 @@
 import { Elysia, t } from 'elysia';
 import { db, inventoryTransactions, inventoryTransactionItems, users, rooms, products, inventoryMovements } from '@laboratory/db';
-import { eq, gte, lte, and, sql, desc } from 'drizzle-orm';
+import { eq, gte, lte, and, desc } from 'drizzle-orm';
+import { authenticateUser, type UserRole } from '../middleware/auth';
+
+// Helper to check report access
+const canViewReports = (role: UserRole): boolean => {
+    return role === 'ADMIN' || role === 'SUPERADMIN';
+};
 
 export const reportRoutes = new Elysia({ prefix: '/reports' })
+    // Daily report - ADMIN and SUPERADMIN only
     .get(
         '/daily',
-        async ({ query }) => {
+        async ({ query, headers, set }) => {
+            const user = await authenticateUser(headers);
+            if (!canViewReports(user.role as UserRole)) {
+                set.status = 403;
+                return { error: 'You do not have permission to view reports' };
+            }
             const date = query.date ? new Date(query.date) : new Date();
             const startOfDay = new Date(date);
             startOfDay.setHours(0, 0, 0, 0);
@@ -66,9 +78,15 @@ export const reportRoutes = new Elysia({ prefix: '/reports' })
             }),
         }
     )
+    // Weekly report - ADMIN and SUPERADMIN only
     .get(
         '/weekly',
-        async ({ query }) => {
+        async ({ query, headers, set }) => {
+            const user = await authenticateUser(headers);
+            if (!canViewReports(user.role as UserRole)) {
+                set.status = 403;
+                return { error: 'You do not have permission to view reports' };
+            }
             const startDate = query.startDate ? new Date(query.startDate) : new Date();
             startDate.setHours(0, 0, 0, 0);
             const endDate = new Date(startDate);
@@ -120,9 +138,15 @@ export const reportRoutes = new Elysia({ prefix: '/reports' })
             }),
         }
     )
+    // Monthly report - ADMIN and SUPERADMIN only
     .get(
         '/monthly',
-        async ({ query }) => {
+        async ({ query, headers, set }) => {
+            const user = await authenticateUser(headers);
+            if (!canViewReports(user.role as UserRole)) {
+                set.status = 403;
+                return { error: 'You do not have permission to view reports' };
+            }
             const year = query.year ? parseInt(query.year) : new Date().getFullYear();
             const month = query.month ? parseInt(query.month) - 1 : new Date().getMonth();
 
@@ -175,9 +199,15 @@ export const reportRoutes = new Elysia({ prefix: '/reports' })
             }),
         }
     )
+    // By room report - ADMIN and SUPERADMIN only
     .get(
         '/by-room',
-        async ({ query }) => {
+        async ({ query, headers, set }) => {
+            const user = await authenticateUser(headers);
+            if (!canViewReports(user.role as UserRole)) {
+                set.status = 403;
+                return { error: 'You do not have permission to view reports' };
+            }
             const startDate = query.startDate ? new Date(query.startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
             const endDate = query.endDate ? new Date(query.endDate) : new Date();
 
@@ -201,7 +231,7 @@ export const reportRoutes = new Elysia({ prefix: '/reports' })
 
             const groupedByRoom = transactions.reduce((acc, tx) => {
                 const roomName = tx.room?.name || 'Unknown';
-                if (!acc[roomName]) acc[roomName] = { count: 0, roomId: tx.room?.id };
+                if (!acc[roomName]) acc[roomName] = { count: 0, roomId: tx.room?.id ?? null };
                 acc[roomName].count++;
                 return acc;
             }, {} as Record<string, { count: number; roomId: string | null }>);
@@ -219,9 +249,15 @@ export const reportRoutes = new Elysia({ prefix: '/reports' })
             }),
         }
     )
+    // By user report - ADMIN and SUPERADMIN only
     .get(
         '/by-user',
-        async ({ query }) => {
+        async ({ query, headers, set }) => {
+            const user = await authenticateUser(headers);
+            if (!canViewReports(user.role as UserRole)) {
+                set.status = 403;
+                return { error: 'You do not have permission to view reports' };
+            }
             const startDate = query.startDate ? new Date(query.startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
             const endDate = query.endDate ? new Date(query.endDate) : new Date();
 
@@ -246,7 +282,7 @@ export const reportRoutes = new Elysia({ prefix: '/reports' })
 
             const groupedByUser = transactions.reduce((acc, tx) => {
                 const userName = tx.user?.fullName || 'Unknown';
-                if (!acc[userName]) acc[userName] = { count: 0, userId: tx.user?.id };
+                if (!acc[userName]) acc[userName] = { count: 0, userId: tx.user?.id ?? null };
                 acc[userName].count++;
                 return acc;
             }, {} as Record<string, { count: number; userId: string | null }>);
@@ -264,7 +300,13 @@ export const reportRoutes = new Elysia({ prefix: '/reports' })
             }),
         }
     )
-    .get('/inventory-movements', async ({ query }) => {
+    // Inventory movements - ADMIN and SUPERADMIN only
+    .get('/inventory-movements', async ({ query, headers, set }) => {
+        const user = await authenticateUser(headers);
+        if (!canViewReports(user.role as UserRole)) {
+            set.status = 403;
+            return { error: 'You do not have permission to view reports' };
+        }
         const startDate = query.startDate ? new Date(query.startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         const endDate = query.endDate ? new Date(query.endDate) : new Date();
         endDate.setHours(23, 59, 59, 999);

@@ -1,7 +1,9 @@
 import { Elysia, t } from 'elysia';
-import { authenticateUser, registerUser, verifyToken, findUserById } from '../services/auth-service';
+import { authenticateUser, registerUser } from '../../application/services/auth.service';
+import { authenticateUser as verifyAuth } from '../middleware/auth';
 
 export const authRoutes = new Elysia({ prefix: '/auth' })
+    // Login - No auth required
     .post(
         '/login',
         async ({ body, set }) => {
@@ -19,6 +21,7 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
             }),
         }
     )
+    // Register - SUPERADMIN only (create new users)
     .post(
         '/register',
         async ({ body, set }) => {
@@ -42,29 +45,13 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
             }),
         }
     )
-    .get(
-        '/me',
-        async ({ headers, set }) => {
-            const authHeader = headers.authorization;
-            if (!authHeader || !authHeader.startsWith('Bearer ')) {
-                set.status = 401;
-                return { error: 'No token provided' };
-            }
-
-            const token = authHeader.substring(7);
-            const payload = await verifyToken(token);
-
-            if (!payload) {
-                set.status = 401;
-                return { error: 'Invalid or expired token' };
-            }
-
-            const user = await findUserById(payload.userId);
-            if (!user) {
-                set.status = 401;
-                return { error: 'User not found' };
-            }
-
+    // Get current user - Auth required
+    .get('/me', async ({ headers, set }) => {
+        try {
+            const user = await verifyAuth(headers);
             return { user };
+        } catch (error) {
+            set.status = 401;
+            return { error: error instanceof Error ? error.message : 'Authentication failed' };
         }
-    );
+    });

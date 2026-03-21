@@ -2,6 +2,15 @@ import { pgEnum, pgTable, uuid, varchar, text, timestamp, boolean, integer, inde
 
 export const userRoleEnum = pgEnum('user_role', ['SUPERADMIN', 'ADMIN', 'GENERAL']);
 
+// Order status enum
+export const orderStatusEnum = pgEnum('order_status', [
+    'PENDING',      // Order placed, waiting for review
+    'APPROVED',     // Approved by admin/superadmin
+    'REJECTED',     // Rejected by admin/superadmin
+    'FULFILLED',    // Items delivered to user
+    'CANCELLED',    // Cancelled by user or admin
+]);
+
 export const rooms = pgTable('rooms', {
     id: uuid('id').primaryKey().defaultRandom(),
     name: varchar('name', { length: 100 }).notNull().unique(),
@@ -13,24 +22,21 @@ export const users = pgTable(
     'users',
     {
         id: uuid('id').primaryKey().defaultRandom(),
-<<<<<<< HEAD
-        email: varchar('email', { length: 255 }).notNull().unique(),
-        passwordHash: varchar('password_hash', { length: 255 }).notNull(),
-=======
         username: varchar('username', { length: 100 }).notNull().unique(),
         password: varchar('password', { length: 255 }).notNull(),
->>>>>>> d9a9557 (update code)
         fullName: varchar('full_name', { length: 150 }).notNull(),
         nickname: varchar('nickname', { length: 100 }),
         role: userRoleEnum('role').notNull(),
         roomId: uuid('room_id').references(() => rooms.id),
         isActive: boolean('is_active').default(true),
         createdAt: timestamp('created_at').defaultNow(),
+        deletedAt: timestamp('deleted_at'), // Soft delete - null means not deleted
     },
     (table) => ({
         roomIdx: index('idx_users_room').on(table.roomId),
         roleIdx: index('idx_users_role').on(table.role),
         usernameIdx: index('idx_users_username').on(table.username),
+        deletedAtIdx: index('idx_users_deleted_at').on(table.deletedAt),
     })
 );
 
@@ -108,10 +114,85 @@ export const inventoryMovements = pgTable(
 
 export const notifications = pgTable('notifications', {
     id: uuid('id').primaryKey().defaultRandom(),
-    title: varchar('title', { length: 255 }),
-    message: text('message'),
+    type: varchar('type', { length: 50 }).notNull(), // 'LOW_STOCK', 'NEW_ORDER', 'ORDER_STATUS', etc.
+    title: varchar('title', { length: 255 }).notNull(),
+    message: text('message').notNull(),
+    data: text('data'), // JSON string for additional data
+    isRead: boolean('is_read').default(false),
+    targetRoles: varchar('target_roles', { length: 100 }), // Comma-separated roles: 'SUPERADMIN,ADMIN'
+    productId: uuid('product_id').references(() => products.id), // Related product if applicable
+    orderId: uuid('order_id').references(() => orders.id), // Related order if applicable
     createdAt: timestamp('created_at').defaultNow(),
 });
+
+// =====================
+// SYSTEM CONFIGURATION
+// =====================
+
+// System configuration table - stores system-wide settings
+export const systemConfig = pgTable('system_config', {
+    key: varchar('key', { length: 100 }).primaryKey(),
+    value: text('value').notNull(),
+    description: text('description'),
+    category: varchar('category', { length: 50 }).default('general'), // 'inventory', 'notification', 'order', etc.
+    updatedAt: timestamp('updated_at').defaultNow(),
+    updatedBy: uuid('updated_by').references(() => users.id),
+});
+
+// =====================
+// ORDERS TABLES
+// =====================
+
+// Orders - Main order table for users to order lab items
+export const orders = pgTable(
+    'orders',
+    {
+        id: uuid('id').primaryKey().defaultRandom(),
+        orderNumber: varchar('order_number', { length: 50 }).notNull().unique(),
+        userId: uuid('user_id')
+            .notNull()
+            .references(() => users.id),
+        roomId: uuid('room_id')
+            .notNull()
+            .references(() => rooms.id),
+        status: orderStatusEnum('status').default('PENDING').notNull(),
+        note: text('note'), // User's note for the order
+        adminNote: text('admin_note'), // Admin's note when approving/rejecting
+        reviewedBy: uuid('reviewed_by').references(() => users.id), // Who reviewed the order
+        reviewedAt: timestamp('reviewed_at'), // When the order was reviewed
+        fulfilledBy: uuid('fulfilled_by').references(() => users.id), // Who fulfilled the order
+        fulfilledAt: timestamp('fulfilled_at'), // When the order was fulfilled
+        createdAt: timestamp('created_at').defaultNow(),
+        updatedAt: timestamp('updated_at').defaultNow(),
+    },
+    (table) => ({
+        userIdx: index('idx_orders_user').on(table.userId),
+        roomIdx: index('idx_orders_room').on(table.roomId),
+        statusIdx: index('idx_orders_status').on(table.status),
+        createdAtIdx: index('idx_orders_created_at').on(table.createdAt),
+    })
+);
+
+// Order Items - Individual items within an order
+export const orderItems = pgTable(
+    'order_items',
+    {
+        id: uuid('id').primaryKey().defaultRandom(),
+        orderId: uuid('order_id')
+            .notNull()
+            .references(() => orders.id, { onDelete: 'cascade' }),
+        productId: uuid('product_id')
+            .notNull()
+            .references(() => products.id),
+        quantity: integer('quantity').notNull(),
+        fulfilledQuantity: integer('fulfilled_quantity').default(0), // How many were actually provided
+        note: text('note'), // Note for specific item
+    },
+    (table) => ({
+        orderIdx: index('idx_order_items_order').on(table.orderId),
+        productIdx: index('idx_order_items_product').on(table.productId),
+    })
+);
 
 export type Room = typeof rooms.$inferSelect;
 export type NewRoom = typeof rooms.$inferInsert;
@@ -125,3 +206,9 @@ export type NewInventoryTransaction = typeof inventoryTransactions.$inferInsert;
 export type InventoryTransactionItem = typeof inventoryTransactionItems.$inferSelect;
 export type InventoryMovement = typeof inventoryMovements.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
+export type Order = typeof orders.$inferSelect;
+export type NewOrder = typeof orders.$inferInsert;
+export type OrderItem = typeof orderItems.$inferSelect;
+export type NewOrderItem = typeof orderItems.$inferInsert;
+export type SystemConfig = typeof systemConfig.$inferSelect;
+export type NewSystemConfig = typeof systemConfig.$inferInsert;

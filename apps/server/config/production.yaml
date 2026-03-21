@@ -1,0 +1,31 @@
+# Production environment configuration
+
+server:
+  host: 0.0.0.0
+
+database:
+  ssl: true
+  poolSize: 20
+
+jwt:
+  # Use RS512 (RSA 4096-bit with SHA-512) for production
+  algorithm: ${JWT_ALGORITHM:RS512}
+
+logging:
+  jsonFormat: true
+  level: info
+  requests: false
+
+cors:
+  enabled: true
+  origins:
+    - ${CORS_ORIGIN}
+  methods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+  headers:
+    - Content-Type
+    - Authorization

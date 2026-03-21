@@ -1,11 +1,41 @@
+# Dependencies
 node_modules
+.pnp-store
+.yarn
+.pnpm-lock.yaml
+yarn.lock
+package-lock.json
+bun.lockb
+
+# Build outputs
+dist
 .next
+.turbo
+.turbo.json
+.build
+
+# Development
 .git
 .gitignore
-Dockerfile*
-docker-compose*
-dist
-build
-coverage
 *.log
-.env*
+*.pid
+.env
+.env.local
+.env.development.local
+.env.production.local
+
+# IDE
+.idea
+.vscode
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+coverage
+.nyc_output
+*.test.ts
+*.spec.ts
+__tests__

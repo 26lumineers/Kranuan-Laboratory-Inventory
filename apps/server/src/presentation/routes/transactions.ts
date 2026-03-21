@@ -1,21 +1,49 @@
 import { Elysia, t } from 'elysia';
-import { db, inventoryTransactions, inventoryTransactionItems, inventoryStocks, inventoryMovements, products } from '@laboratory/db';
-import { eq, and } from 'drizzle-orm';
+import { db, inventoryTransactions, inventoryTransactionItems, inventoryStocks, inventoryMovements } from '@laboratory/db';
+import { eq } from 'drizzle-orm';
+import { authenticateUser } from '../middleware/auth';
 
 export const transactionRoutes = new Elysia({ prefix: '/transactions' })
-    .get('/', async () => {
+    // List transactions - All authenticated users (GENERAL can see their own, ADMIN/SUPERADMIN see all)
+    .get('/', async ({ headers, set }) => {
+        const user = await authenticateUser(headers);
+        if (user.role === 'GENERAL') {
+            // General users can only see their own transactions
+            const result = await db.select().from(inventoryTransactions)
+                .where(eq(inventoryTransactions.userId, user.id));
+            return result;
+        }
+        // ADMIN and SUPERADMIN can see all
         const result = await db.select().from(inventoryTransactions);
         return result;
     })
-    .get('/:id', async ({ params }) => {
+    .get('/:id', async ({ params, headers, set }) => {
+        const user = await authenticateUser(headers);
         const transaction = await db.select().from(inventoryTransactions).where(eq(inventoryTransactions.id, params.id));
+
+        if (!transaction[0]) {
+            set.status = 404;
+            return { error: 'Transaction not found' };
+        }
+
+        // GENERAL users can only view their own transactions
+        if (user.role === 'GENERAL' && transaction[0].userId !== user.id) {
+            set.status = 403;
+            return { error: 'You can only view your own transactions' };
+        }
+
         const items = await db.select().from(inventoryTransactionItems).where(eq(inventoryTransactionItems.transactionId, params.id));
         return { ...transaction[0], items };
     })
+    // Order items - All authenticated users can order (GENERAL, ADMIN, SUPERADMIN)
     .post(
         '/',
-        async ({ body }) => {
-            const { userId, roomId, note, items } = body;
+        async ({ body, headers, set }) => {
+            const user = await authenticateUser(headers);
+            const { roomId, note, items } = body;
+
+            // Use the authenticated user's ID
+            const userId = user.id;
 
             return await db.transaction(async (tx) => {
                 const [transaction] = await tx.insert(inventoryTransactions).values({ userId, roomId, note }).returning();
@@ -55,13 +83,12 @@ export const transactionRoutes = new Elysia({ prefix: '/transactions' })
         },
         {
             body: t.Object({
-                userId: t.String(),
                 roomId: t.String(),
                 note: t.Optional(t.String()),
                 items: t.Array(
                     t.Object({
                         productId: t.String(),
-                        quantity: t.Number(),
+                        quantity: t.Number({ minimum: 1 }),
                     })
                 ),
             }),

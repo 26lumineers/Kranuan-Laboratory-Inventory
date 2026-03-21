@@ -16,7 +16,8 @@
         "@laboratory/db": "workspace:*",
         "@laboratory/shared": "workspace:*",
         "argon2": "^0.44.0",
-        "elysia": "^1.0.2"
+        "elysia": "^1.0.2",
+        "yaml": "^2.3.4"
     },
     "devDependencies": {
         "@types/node": "^20.11.5",
