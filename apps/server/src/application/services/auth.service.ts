@@ -4,6 +4,7 @@ import { hash, verify } from 'argon2';
 import { config } from '../../infrastructure/config';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { log } from 'console';
 
 export type LoginPayload = {
     username: string;
@@ -201,6 +202,7 @@ export const findUserByUsername = async (username: string): Promise<User | null>
         .select()
         .from(users)
         .where(and(eq(users.username, username), isNull(users.deletedAt)));
+    console.log('findUserByUsername result:', result);
     return result[0] || null;
 };
 

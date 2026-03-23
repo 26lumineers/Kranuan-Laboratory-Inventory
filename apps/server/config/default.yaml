@@ -9,11 +9,15 @@ database:
   host: "localhost"
   port: 5432
   name: "laboratory_inventory"
-  user: "postgres"
-  password: "postgres"
+  user: "lab_user"
+  password: "strongpassword"
   url: ""
   poolSize: 10
   ssl: false
+  # Health check settings for startup
+  healthCheck:
+    maxRetries: 30
+    retryDelayMs: 1000
 
 jwt:
   secret: "laboratory-inventory-secret-key-2024"

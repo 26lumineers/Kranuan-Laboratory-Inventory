@@ -28,38 +28,38 @@ help:
 
 # Docker
 db-up:
-	docker-compose -f docker-compose.db.yml up -d
+	docker-compose up -d postgres pgadmin
 
 db-down:
-	docker-compose -f docker-compose.db.yml down
+	docker-compose down postgres pgadmin
 
 db-logs:
 	docker-compose -f docker-compose.db.yml logs -f postgres
 
 # Database
 db-migrate:
-	cd packages/db && bun run migrate
+	cd packages/db && export $$(cat ../../.env | xargs) && bun run migrate
 
 db-push:
-	cd packages/db && bun run push
+	cd packages/db && export $$(cat ../../.env | xargs) && bun run push
 
 db-seed:
-	cd packages/db && bun run seed
+	cd packages/db && export $$(cat ../../.env | xargs) && bun run seed
 
 db-studio:
-	cd packages/db && bun run studio
+	cd packages/db && export $$(cat ../../.env | xargs) && bun run studio
 
-
-backend-start:
+be:
 	cd apps/server && bun run start
 
 # Frontend
-frontend-dev:
+fe:
 	cd apps/web && bun run dev
 
 frontend-build:
 	cd apps/web && bun run build
-
+seed:
+	cd packages/db && bun run seed
 # Full Stack
 dev:
 	@echo "Starting backend and frontend..."

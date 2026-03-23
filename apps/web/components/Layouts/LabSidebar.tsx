@@ -14,6 +14,12 @@ const LabSidebar = () => {
 
     const isSuperAdmin = user?.role === 'SUPERADMIN';
     const isAdmin = user?.role === 'ADMIN' || isSuperAdmin;
+    const isGeneral = user?.role === 'GENERAL';
+
+    // GENERAL users don't see sidebar
+    if (isGeneral) {
+        return null;
+    }
 
     const handleLogout = async () => {
         await dispatch(logout());
@@ -22,17 +28,8 @@ const LabSidebar = () => {
 
     const isActive = (path: string) => router.pathname === path;
 
+    // Admin/SuperAdmin menu
     const menuItems = [
-        {
-            label: 'Dashboard',
-            path: '/dashboard',
-            icon: (
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                </svg>
-            ),
-            roles: ['SUPERADMIN', 'ADMIN', 'GENERAL'],
-        },
         {
             label: 'Order Items',
             path: '/order',
@@ -41,7 +38,7 @@ const LabSidebar = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
             ),
-            roles: ['SUPERADMIN', 'ADMIN', 'GENERAL'],
+            roles: ['SUPERADMIN', 'ADMIN'],
         },
         {
             label: 'Transactions',
@@ -51,7 +48,7 @@ const LabSidebar = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                 </svg>
             ),
-            roles: ['SUPERADMIN', 'ADMIN', 'GENERAL'],
+            roles: ['SUPERADMIN', 'ADMIN'],
         },
         {
             label: 'Inventory',
@@ -95,9 +92,8 @@ const LabSidebar = () => {
         },
     ];
 
-    const filteredMenuItems = menuItems.filter(item =>
-        user && item.roles.includes(user.role)
-    );
+    // Filter menu based on user role (GENERAL users already returned null above)
+    const filteredMenuItems = menuItems.filter(item => user && item.roles.includes(user.role));
 
     if (!isAuthenticated) {
         return null;
@@ -112,7 +108,7 @@ const LabSidebar = () => {
             <div className="flex h-16 items-center justify-between border-b border-gray-200 px-4 dark:border-gray-700">
                 {!collapsed && (
                     <Link href="/dashboard" className="flex items-center">
-                        <span className="text-xl font-bold text-primary">Lab Inventory</span>
+                        <span className="truncate text-xl font-bold text-primary">Lab Inventory</span>
                     </Link>
                 )}
                 <button

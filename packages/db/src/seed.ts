@@ -1,4 +1,4 @@
-import { db, users, rooms, products, inventoryStocks } from './src/schema';
+import { db, users, rooms, products, inventoryStocks } from './index';
 import { hash } from 'argon2';
 
 async function seed() {
@@ -62,29 +62,161 @@ async function seed() {
     const insertedUsers = await db.insert(users).values(generalUsersData).returning();
     console.log(`✅ Created ${insertedUsers.length} general users (password: user123)`);
 
-    // Seed Products
+    // Seed Products - Master Data by Category
     console.log('🏷️ Creating products...');
+
     const productsData = [
-        { name: 'Test Tube 5ml', unit: 'pcs', description: 'Standard 5ml test tube', lowStockThreshold: 100 },
-        { name: 'Test Tube 10ml', unit: 'pcs', description: 'Standard 10ml test tube', lowStockThreshold: 100 },
-        { name: 'Pipette Tips 200ul', unit: 'box', description: 'Box of 200ul pipette tips', lowStockThreshold: 20 },
-        { name: 'Pipette Tips 1000ul', unit: 'box', description: 'Box of 1000ul pipette tips', lowStockThreshold: 20 },
-        { name: 'Examination Gloves S', unit: 'box', description: 'Small size examination gloves (100 pcs)', lowStockThreshold: 10 },
-        { name: 'Examination Gloves M', unit: 'box', description: 'Medium size examination gloves (100 pcs)', lowStockThreshold: 10 },
-        { name: 'Examination Gloves L', unit: 'box', description: 'Large size examination gloves (100 pcs)', lowStockThreshold: 10 },
-        { name: 'Alcohol Swabs', unit: 'box', description: 'Box of alcohol swabs (100 pcs)', lowStockThreshold: 15 },
-        { name: 'Syringe 3ml', unit: 'pcs', description: '3ml disposable syringe', lowStockThreshold: 200 },
-        { name: 'Syringe 5ml', unit: 'pcs', description: '5ml disposable syringe', lowStockThreshold: 200 },
-        { name: 'Needle 21G', unit: 'pcs', description: '21 gauge needle', lowStockThreshold: 300 },
-        { name: 'Needle 23G', unit: 'pcs', description: '23 gauge needle', lowStockThreshold: 300 },
-        { name: 'Blood Collection Tube EDTA', unit: 'pcs', description: 'EDTA blood collection tube', lowStockThreshold: 150 },
-        { name: 'Blood Collection Tube Heparin', unit: 'pcs', description: 'Heparin blood collection tube', lowStockThreshold: 150 },
-        { name: 'Centrifuge Tube 15ml', unit: 'pcs', description: '15ml centrifuge tube', lowStockThreshold: 100 },
-        { name: 'Microscope Slide', unit: 'box', description: 'Box of microscope slides (50 pcs)', lowStockThreshold: 20 },
-        { name: 'Cover Slip', unit: 'box', description: 'Box of cover slips (100 pcs)', lowStockThreshold: 15 },
-        { name: 'Petri Dish 90mm', unit: 'pcs', description: '90mm sterile petri dish', lowStockThreshold: 50 },
-        { name: 'Cotton Swab Sterile', unit: 'box', description: 'Box of sterile cotton swabs', lowStockThreshold: 20 },
-        { name: 'Lab Coat Disposable', unit: 'pcs', description: 'Disposable lab coat', lowStockThreshold: 30 },
+        // =====================
+        // 1. CHEMICAL_CLINIC - เคมีคลินิก
+        // =====================
+        { name: 'Glucose Strip (DTX)', unit: 'กล่อง', category: 'CHEMICAL_CLINIC', lowStockThreshold: 5 },
+        { name: 'เครื่อง DTX', unit: 'เครื่อง', category: 'CHEMICAL_CLINIC', lowStockThreshold: 1 },
+        { name: 'Lactate', unit: 'กล่อง', category: 'CHEMICAL_CLINIC', lowStockThreshold: 5 },
+        { name: 'Micro Protein CSF/Urine', unit: 'กล่อง', category: 'CHEMICAL_CLINIC', lowStockThreshold: 5 },
+        { name: 'Microalbumin 14G', unit: 'กล่อง', category: 'CHEMICAL_CLINIC', lowStockThreshold: 5 },
+        { name: 'Microbilirubin control', unit: 'กล่อง', category: 'CHEMICAL_CLINIC', lowStockThreshold: 5 },
+        { name: 'Blood Gas cassette', unit: 'กล่อง', category: 'CHEMICAL_CLINIC', lowStockThreshold: 5 },
+        { name: 'Blood Gas automate', unit: 'กล่อง', category: 'CHEMICAL_CLINIC', lowStockThreshold: 5 },
+        { name: 'I smart QC blood gas', unit: 'กล่อง', category: 'CHEMICAL_CLINIC', lowStockThreshold: 3 },
+        { name: 'blood gas QC1', unit: 'กล่อง', category: 'CHEMICAL_CLINIC', lowStockThreshold: 3 },
+        { name: 'blood gas QC2', unit: 'กล่อง', category: 'CHEMICAL_CLINIC', lowStockThreshold: 3 },
+        { name: 'blood gas QC3', unit: 'กล่อง', category: 'CHEMICAL_CLINIC', lowStockThreshold: 3 },
+        { name: 'Blood Gas Syringe', unit: 'ชิ้น', category: 'CHEMICAL_CLINIC', lowStockThreshold: 50 },
+        { name: 'Troponin I', unit: 'กล่อง', category: 'CHEMICAL_CLINIC', lowStockThreshold: 5 },
+        { name: 'Troponin T', unit: 'กล่อง', category: 'CHEMICAL_CLINIC', lowStockThreshold: 5 },
+
+        // =====================
+        // 2. IMMUNOLOGY - ภูมิคุ้มกันวิทยา
+        // =====================
+        { name: 'Dengue DUO IgG/IgM/NS1Ag', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'Dengue IgG/IgM', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'Dengue NS1Ag', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'Dengue IgG/IgM Card', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'Dengue NS1Ag Card', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'HBsAg', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'Anti-HBs', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'HBsAg/HCV Combo', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'Anti-HCV', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'Anti-HIV Determine', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'Anti-HIV Retroscreen', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'Anti-HIV Wondfo', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'Syphilis Ab', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'Anti-TP', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'VDRL (RPR)', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'Leptospirosis Ab', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'Lepto IgG/IgM DUO Card', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'Tsutsugamushi Ab', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'Scrub typhus IgM/IgG Card', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'CRP', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'Rheumatoid factor', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'Covid-19 & Influenza A+B combo Rapid', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'Covid-19/RSV/Flu A+B', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'Covid Ag Test (ATK)', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 10 },
+        { name: 'Influenza A/B', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'RSV', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'HAV IgG/IgM Rapid Test', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'Cryptococcal Antigen', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'Melioidosis', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+        { name: 'U plate', unit: 'กล่อง', category: 'IMMUNOLOGY', lowStockThreshold: 5 },
+
+        // =====================
+        // 3. HEMATOLOGY - โลหิตวิทยา
+        // =====================
+        { name: 'DCIP', unit: 'หลอด', category: 'HEMATOLOGY', lowStockThreshold: 10 },
+        { name: 'G-6-PD', unit: 'กล่อง', category: 'HEMATOLOGY', lowStockThreshold: 5 },
+        { name: 'Prothrombin Time (PT)', unit: 'ชิ้น', category: 'HEMATOLOGY', lowStockThreshold: 50 },
+        { name: 'PT/INR (strip wondfo)', unit: 'กล่อง', category: 'HEMATOLOGY', lowStockThreshold: 5 },
+        { name: 'PT Uniplastin', unit: 'แพค', category: 'HEMATOLOGY', lowStockThreshold: 5 },
+        { name: 'APTT (strip wondfo)', unit: 'กล่อง', category: 'HEMATOLOGY', lowStockThreshold: 5 },
+        { name: 'APTT LiquicelinE', unit: 'แพค', category: 'HEMATOLOGY', lowStockThreshold: 5 },
+        { name: 'ESR solution reagent', unit: 'ขวด', category: 'HEMATOLOGY', lowStockThreshold: 10 },
+        { name: 'ESR pipette', unit: 'กล่อง', category: 'HEMATOLOGY', lowStockThreshold: 5 },
+        { name: 'Reticulocyte Reagent', unit: 'ขวด', category: 'HEMATOLOGY', lowStockThreshold: 5 },
+        { name: 'Wright Giemsa Stain Reagent A', unit: 'กล่อง', category: 'HEMATOLOGY', lowStockThreshold: 5 },
+        { name: 'Wright Giemsa Stain Methanol', unit: 'กล่อง', category: 'HEMATOLOGY', lowStockThreshold: 5 },
+        { name: 'Wright Giemsa Stain Buffer', unit: 'กล่อง', category: 'HEMATOLOGY', lowStockThreshold: 5 },
+
+        // =====================
+        // 4. MICROSCOPIC - จุลทรรศนศาสตร์
+        // =====================
+        { name: 'Urine strip 11G', unit: 'กล่อง', category: 'MICROSCOPIC', lowStockThreshold: 10 },
+        { name: 'Urine strip 14G', unit: 'กล่อง', category: 'MICROSCOPIC', lowStockThreshold: 10 },
+        { name: 'Reagent Sperm count', unit: 'กล่อง', category: 'MICROSCOPIC', lowStockThreshold: 5 },
+        { name: 'FIT test', unit: 'กล่อง', category: 'MICROSCOPIC', lowStockThreshold: 5 },
+        { name: 'FOB', unit: 'กล่อง', category: 'MICROSCOPIC', lowStockThreshold: 5 },
+        { name: 'Methamphetamine', unit: 'กล่อง', category: 'MICROSCOPIC', lowStockThreshold: 5 },
+        { name: 'THC Urine cassette', unit: 'กล่อง', category: 'MICROSCOPIC', lowStockThreshold: 5 },
+        { name: 'UPT strip', unit: 'กล่อง', category: 'MICROSCOPIC', lowStockThreshold: 10 },
+
+        // =====================
+        // 5. BLOOD_BANK - ธนาคารเลือด
+        // =====================
+        { name: 'Blood bag 350', unit: 'ถุง', category: 'BLOOD_BANK', lowStockThreshold: 20 },
+        { name: 'Blood bag 450', unit: 'ถุง', category: 'BLOOD_BANK', lowStockThreshold: 20 },
+        { name: 'Gel test LISS/Coombs', unit: 'กล่อง', category: 'BLOOD_BANK', lowStockThreshold: 5 },
+        { name: 'Hb microcuvette', unit: 'ชิ้น', category: 'BLOOD_BANK', lowStockThreshold: 100 },
+
+        // =====================
+        // 6. MICRO_BIOLOGY - จุลชีววิทยา
+        // =====================
+        { name: 'Hemoculture ผู้ใหญ่', unit: 'ขวด', category: 'MICRO_BIOLOGY', lowStockThreshold: 20 },
+        { name: 'Hemoculture เด็ก', unit: 'กล่อง', category: 'MICRO_BIOLOGY', lowStockThreshold: 10 },
+        { name: 'Carry Blair medium', unit: 'ชิ้น', category: 'MICRO_BIOLOGY', lowStockThreshold: 50 },
+        { name: 'Stuart transport medium', unit: 'ชิ้น', category: 'MICRO_BIOLOGY', lowStockThreshold: 50 },
+        { name: 'Amies transport medium', unit: 'ชิ้น', category: 'MICRO_BIOLOGY', lowStockThreshold: 50 },
+        { name: 'TCBS Agar', unit: 'กล่อง', category: 'MICRO_BIOLOGY', lowStockThreshold: 5 },
+        { name: 'TCBS medium', unit: 'ชิ้น', category: 'MICRO_BIOLOGY', lowStockThreshold: 50 },
+        { name: 'Sheep Blood Agar', unit: 'แพค', category: 'MICRO_BIOLOGY', lowStockThreshold: 10 },
+        { name: 'Chocolate Agar', unit: 'แพค', category: 'MICRO_BIOLOGY', lowStockThreshold: 10 },
+        { name: 'MacConkey Agar', unit: 'แพค', category: 'MICRO_BIOLOGY', lowStockThreshold: 10 },
+        { name: 'SS Agar powder', unit: 'ขวด', category: 'MICRO_BIOLOGY', lowStockThreshold: 5 },
+        { name: 'Alkaline peptone water', unit: 'กล่อง', category: 'MICRO_BIOLOGY', lowStockThreshold: 5 },
+        { name: 'Oxidase Strip test', unit: 'กล่อง', category: 'MICRO_BIOLOGY', lowStockThreshold: 5 },
+        { name: 'Candle Jar', unit: 'อัน', category: 'MICRO_BIOLOGY', lowStockThreshold: 2 },
+        { name: 'Inoculating loop 10 µL', unit: 'แพค', category: 'MICRO_BIOLOGY', lowStockThreshold: 5 },
+        { name: 'Inoculating loop 1 µL', unit: 'กล่อง', category: 'MICRO_BIOLOGY', lowStockThreshold: 5 },
+        { name: 'Plate sterile', unit: 'แพค', category: 'MICRO_BIOLOGY', lowStockThreshold: 10 },
+        { name: 'การ์ดจำแนกแกรมบวก/ลบ', unit: 'กล่อง', category: 'MICRO_BIOLOGY', lowStockThreshold: 5 },
+        { name: 'การ์ดทดสอบความไวแกรมบวก/ลบ', unit: 'กล่อง', category: 'MICRO_BIOLOGY', lowStockThreshold: 5 },
+        { name: 'Salmonella O antisera (ทุกกลุ่ม)', unit: 'ขวด', category: 'MICRO_BIOLOGY', lowStockThreshold: 5 },
+        { name: 'Vibrio cholerae O1/O139/Inaba/Ogawa', unit: 'กล่อง', category: 'MICRO_BIOLOGY', lowStockThreshold: 5 },
+        { name: 'Xpert MTB/RIF', unit: 'กล่อง', category: 'MICRO_BIOLOGY', lowStockThreshold: 5 },
+        { name: '3% H2O2', unit: 'ขวด', category: 'MICRO_BIOLOGY', lowStockThreshold: 5 },
+        { name: 'Gram stain set', unit: 'กล่อง', category: 'MICRO_BIOLOGY', lowStockThreshold: 5 },
+        { name: 'Gram crystal violet', unit: 'ขวด', category: 'MICRO_BIOLOGY', lowStockThreshold: 5 },
+        { name: 'Gram iodine', unit: 'ขวด', category: 'MICRO_BIOLOGY', lowStockThreshold: 5 },
+        { name: 'Gram decolorizer', unit: 'ขวด', category: 'MICRO_BIOLOGY', lowStockThreshold: 5 },
+        { name: 'Gram Safranin', unit: 'ขวด', category: 'MICRO_BIOLOGY', lowStockThreshold: 5 },
+        { name: 'AFB set', unit: 'กล่อง', category: 'MICRO_BIOLOGY', lowStockThreshold: 5 },
+        { name: 'Acid alcohol (AFB)', unit: 'ขวด', category: 'MICRO_BIOLOGY', lowStockThreshold: 5 },
+        { name: 'Carbon fuchsin (AFB)', unit: 'ขวด', category: 'MICRO_BIOLOGY', lowStockThreshold: 5 },
+        { name: 'Methylene Blue (AFB)', unit: 'ขวด', category: 'MICRO_BIOLOGY', lowStockThreshold: 5 },
+        { name: '10% KOH', unit: 'กล่อง', category: 'MICRO_BIOLOGY', lowStockThreshold: 5 },
+
+        // =====================
+        // 7. SUB_STOCKS - คลังย่อยกลุ่มงาน
+        // =====================
+        { name: 'Hematocrit Reader', unit: 'ชิ้น', category: 'SUB_STOCKS', lowStockThreshold: 2 },
+        { name: 'Hct red', unit: 'หลอด', category: 'SUB_STOCKS', lowStockThreshold: 100 },
+        { name: 'Hct blue', unit: 'หลอด', category: 'SUB_STOCKS', lowStockThreshold: 100 },
+        { name: 'EDTA vac 6 ml', unit: 'หลอด', category: 'SUB_STOCKS', lowStockThreshold: 100 },
+        { name: 'EDTA vac 2 ml', unit: 'หลอด', category: 'SUB_STOCKS', lowStockThreshold: 100 },
+        { name: 'EDTA K2 0.5 ml', unit: 'หลอด', category: 'SUB_STOCKS', lowStockThreshold: 100 },
+        { name: 'Lithium heparin tube 4 ml', unit: 'หลอด', category: 'SUB_STOCKS', lowStockThreshold: 100 },
+        { name: 'Lithium tube 3 ml', unit: 'หลอด', category: 'SUB_STOCKS', lowStockThreshold: 100 },
+        { name: 'NaF vac', unit: 'หลอด', category: 'SUB_STOCKS', lowStockThreshold: 100 },
+        { name: '3.2% Sodium citrate', unit: 'หลอด', category: 'SUB_STOCKS', lowStockThreshold: 100 },
+        { name: 'Clot Act Tube 4 ml', unit: 'หลอด', category: 'SUB_STOCKS', lowStockThreshold: 100 },
+        { name: 'Slide ใส', unit: 'กล่อง', category: 'SUB_STOCKS', lowStockThreshold: 10 },
+        { name: 'Slide ฝ้า', unit: 'กล่อง', category: 'SUB_STOCKS', lowStockThreshold: 10 },
+        { name: 'Cover glass', unit: 'กล่อง', category: 'SUB_STOCKS', lowStockThreshold: 10 },
+        { name: 'Oil immersion', unit: 'ขวด', category: 'SUB_STOCKS', lowStockThreshold: 10 },
+        { name: 'Tube plastic', unit: 'แพ็ค', category: 'SUB_STOCKS', lowStockThreshold: 5, description: '1000Tube' },
+        { name: 'Cap tube', unit: 'แพ็ค', category: 'SUB_STOCKS', lowStockThreshold: 5, description: '1000Cap' },
+        { name: 'ดินน้ำมัน', unit: 'ชิ้น', category: 'SUB_STOCKS', lowStockThreshold: 10 },
+        { name: 'Blue tip', unit: 'แพ็ค', category: 'SUB_STOCKS', lowStockThreshold: 5, description: '1000อัน' },
+        { name: 'Yellow tip', unit: 'แพ็ค', category: 'SUB_STOCKS', lowStockThreshold: 5, description: '1000อัน' },
+        { name: 'Microtube 2ml with O-ring screw cap', unit: 'กล่อง', category: 'SUB_STOCKS', lowStockThreshold: 10 },
     ];
 
     const insertedProducts = await db.insert(products).values(productsData).returning();
@@ -105,6 +237,14 @@ async function seed() {
     console.log('   SuperAdmin: username: superadmin, password: admin123');
     console.log('   Admin:      username: admin, password: admin123');
     console.log('   General:    username: user_<room_name>, password: user123');
+    console.log('\n📦 Product Categories:');
+    console.log('   - CHEMICAL_CLINIC: เคมีคลินิก (15 items)');
+    console.log('   - IMMUNOLOGY: ภูมิคุ้มกันวิทยา (30 items)');
+    console.log('   - HEMATOLOGY: โลหิตวิทยา (13 items)');
+    console.log('   - MICROSCOPIC: จุลทรรศนศาสตร์ (8 items)');
+    console.log('   - BLOOD_BANK: ธนาคารเลือด (4 items)');
+    console.log('   - MICRO_BIOLOGY: จุลชีววิทยา (34 items)');
+    console.log('   - SUB_STOCKS: คลังย่อยกลุ่มงาน (21 items)');
 }
 
 seed()

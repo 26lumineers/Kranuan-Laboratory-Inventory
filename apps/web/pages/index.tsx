@@ -5,15 +5,20 @@ import { IRootState } from '../store';
 
 const Index = () => {
     const router = useRouter();
-    const { isAuthenticated, token } = useSelector((state: IRootState) => state.auth);
+    const { isAuthenticated, token, user } = useSelector((state: IRootState) => state.auth);
 
     useEffect(() => {
         if (isAuthenticated && token) {
-            router.replace('/dashboard');
+            // Redirect GENERAL users to /order, ADMIN/SUPERADMIN to /dashboard
+            if (user?.role === 'GENERAL') {
+                router.replace('/order');
+            } else {
+                router.replace('/dashboard');
+            }
         } else {
             router.replace('/auth/login');
         }
-    }, [isAuthenticated, token, router]);
+    }, [isAuthenticated, token, user, router]);
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">

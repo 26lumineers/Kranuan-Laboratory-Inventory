@@ -31,7 +31,7 @@ export const rolePermissions = {
     },
     GENERAL: {
         canOrder: true,
-        canViewStock: false,
+        canViewStock: false, // Cannot see stock quantities
         canCrudStock: false,
         canManageUsers: false,
     },

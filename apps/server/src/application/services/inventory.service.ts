@@ -26,6 +26,18 @@ export const listInventoryStocks = async () => {
         .leftJoin(products, eq(inventoryStocks.productId, products.id));
 };
 
+// For GENERAL users - excludes quantity field
+export const listInventoryStocksForGeneral = async () => {
+    return db
+        .select({
+            productId: inventoryStocks.productId,
+            updatedAt: inventoryStocks.updatedAt,
+            product: products,
+        })
+        .from(inventoryStocks)
+        .leftJoin(products, eq(inventoryStocks.productId, products.id));
+};
+
 export const listLowStockInventory = async () => {
     return db
         .select({

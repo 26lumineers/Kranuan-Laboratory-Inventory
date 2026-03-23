@@ -11,6 +11,17 @@ export const orderStatusEnum = pgEnum('order_status', [
     'CANCELLED',    // Cancelled by user or admin
 ]);
 
+// Product category enum - matches room categories
+export const productCategoryEnum = pgEnum('product_category', [
+    'CHEMICAL_CLINIC',    // เคมีคลินิก
+    'IMMUNOLOGY',         // ภูมิคุ้มกันวิทยา
+    'HEMATOLOGY',         // โลหิตวิทยา
+    'MICROSCOPIC',        // จุลทรรศนศาสตร์
+    'BLOOD_BANK',         // ธนาคารเลือด
+    'MICRO_BIOLOGY',      // จุลชีววิทยา
+    'SUB_STOCKS',         // คลังย่อยกลุ่มงาน
+]);
+
 export const rooms = pgTable('rooms', {
     id: uuid('id').primaryKey().defaultRandom(),
     name: varchar('name', { length: 100 }).notNull().unique(),
@@ -40,15 +51,22 @@ export const users = pgTable(
     })
 );
 
-export const products = pgTable('products', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    name: varchar('name', { length: 200 }).notNull(),
-    unit: varchar('unit', { length: 50 }).notNull(),
-    description: text('description'),
-    lowStockThreshold: integer('low_stock_threshold').default(0),
-    isActive: boolean('is_active').default(true),
-    createdAt: timestamp('created_at').defaultNow(),
-});
+export const products = pgTable(
+    'products',
+    {
+        id: uuid('id').primaryKey().defaultRandom(),
+        name: varchar('name', { length: 200 }).notNull(),
+        unit: varchar('unit', { length: 50 }).notNull(),
+        category: productCategoryEnum('category').notNull(),
+        description: text('description'),
+        lowStockThreshold: integer('low_stock_threshold').default(0),
+        isActive: boolean('is_active').default(true),
+        createdAt: timestamp('created_at').defaultNow(),
+    },
+    (table) => ({
+        categoryIdx: index('idx_products_category').on(table.category),
+    })
+);
 
 export const inventoryStocks = pgTable('inventory_stocks', {
     productId: uuid('product_id')
@@ -212,3 +230,20 @@ export type OrderItem = typeof orderItems.$inferSelect;
 export type NewOrderItem = typeof orderItems.$inferInsert;
 export type SystemConfig = typeof systemConfig.$inferSelect;
 export type NewSystemConfig = typeof systemConfig.$inferInsert;
+
+// Table singleton for Elysia-Drizzle integration
+export const table = {
+    rooms,
+    users,
+    products,
+    inventoryStocks,
+    inventoryTransactions,
+    inventoryTransactionItems,
+    inventoryMovements,
+    notifications,
+    systemConfig,
+    orders,
+    orderItems,
+} as const;
+
+export type Table = typeof table;

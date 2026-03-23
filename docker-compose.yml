@@ -10,7 +10,7 @@ services:
   # =====================
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:18
     container_name: laboratory-postgres
     restart: unless-stopped
     environment:

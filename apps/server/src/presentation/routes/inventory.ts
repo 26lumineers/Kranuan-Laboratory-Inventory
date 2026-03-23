@@ -1,30 +1,38 @@
 import { Elysia, t } from 'elysia';
+import { USER_ROLES } from '@laboratory/shared';
 import {
     adjustInventory,
     listInventoryStocks,
+    listInventoryStocksForGeneral,
     listLowStockInventory,
     restockInventory,
 } from '../../application/services/inventory.service';
 import { authenticateUser, type AuthUser } from '../middleware/auth';
 
-// Helper to check stock view permission (ADMIN and SUPERADMIN)
-const canViewStock = (user: AuthUser): boolean => {
-    return user.role === 'ADMIN' || user.role === 'SUPERADMIN';
+// Helper to check stock view permission (ADMIN and SUPERADMIN only)
+const isAdminTier = (user: AuthUser): boolean => {
+    return user.role === USER_ROLES.ADMIN || user.role === USER_ROLES.SUPERADMIN;
 };
 
 export const inventoryRoutes = new Elysia({ prefix: '/inventory' })
     // View stock - ADMIN and SUPERADMIN only
     .get('/', async ({ headers, set }) => {
         const user = await authenticateUser(headers);
-        if (!canViewStock(user)) {
+        if (!isAdminTier(user)) {
             set.status = 403;
             return { error: 'You do not have permission to view stock' };
         }
         return listInventoryStocks();
     })
+    // View stock for GENERAL - no quantity field
+    .get('/general', async ({ headers }) => {
+        const user = await authenticateUser(headers);
+        console.log(JSON.stringify({ timestamp: new Date().toISOString(), action: 'listInventoryStocksForGeneral', userId: user.id, role: user.role }));
+        return listInventoryStocksForGeneral();
+    })
     .get('/low-stock', async ({ headers, set }) => {
         const user = await authenticateUser(headers);
-        if (!canViewStock(user)) {
+        if (!isAdminTier(user)) {
             set.status = 403;
             return { error: 'You do not have permission to view stock' };
         }
@@ -35,7 +43,7 @@ export const inventoryRoutes = new Elysia({ prefix: '/inventory' })
         '/restock',
         async ({ body, headers, set }) => {
             const user = await authenticateUser(headers);
-            if (user.role !== 'SUPERADMIN') {
+            if (user.role !== USER_ROLES.SUPERADMIN) {
                 set.status = 403;
                 return { error: 'Only SUPERADMIN can restock inventory' };
             }
@@ -53,7 +61,7 @@ export const inventoryRoutes = new Elysia({ prefix: '/inventory' })
         '/adjust',
         async ({ body, headers, set }) => {
             const user = await authenticateUser(headers);
-            if (user.role !== 'SUPERADMIN') {
+            if (user.role !== USER_ROLES.SUPERADMIN) {
                 set.status = 403;
                 return { error: 'Only SUPERADMIN can adjust inventory' };
             }

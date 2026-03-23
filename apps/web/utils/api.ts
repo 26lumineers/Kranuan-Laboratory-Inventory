@@ -3,7 +3,17 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 export interface ApiResponse<T> {
     data?: T;
     error?: string;
+    status?: number;
 }
+
+// Handle unauthorized response - clear token and redirect to login
+const handleUnauthorized = () => {
+    if (typeof window !== 'undefined') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/auth/login';
+    }
+};
 
 export class ApiClient {
     private baseUrl: string;
@@ -27,6 +37,22 @@ export class ApiClient {
         return headers;
     }
 
+    private async handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
+        const data = await response.json();
+
+        // Handle 401 Unauthorized - token expired or invalid
+        if (response.status === 401) {
+            handleUnauthorized();
+            return { error: 'Unauthorized', status: 401 };
+        }
+
+        if (!response.ok) {
+            return { error: data.error || 'Request failed', status: response.status };
+        }
+
+        return { data, status: response.status };
+    }
+
     async get<T>(endpoint: string): Promise<ApiResponse<T>> {
         try {
             const response = await fetch(`${this.baseUrl}${endpoint}`, {
@@ -34,13 +60,7 @@ export class ApiClient {
                 headers: this.getHeaders(),
             });
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                return { error: data.error || 'Request failed' };
-            }
-
-            return { data };
+            return this.handleResponse<T>(response);
         } catch (error) {
             return { error: 'Network error' };
         }
@@ -54,13 +74,7 @@ export class ApiClient {
                 body: JSON.stringify(body),
             });
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                return { error: data.error || 'Request failed' };
-            }
-
-            return { data };
+            return this.handleResponse<T>(response);
         } catch (error) {
             return { error: 'Network error' };
         }
@@ -74,13 +88,7 @@ export class ApiClient {
                 body: JSON.stringify(body),
             });
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                return { error: data.error || 'Request failed' };
-            }
-
-            return { data };
+            return this.handleResponse<T>(response);
         } catch (error) {
             return { error: 'Network error' };
         }
@@ -93,13 +101,7 @@ export class ApiClient {
                 headers: this.getHeaders(),
             });
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                return { error: data.error || 'Request failed' };
-            }
-
-            return { data };
+            return this.handleResponse<T>(response);
         } catch (error) {
             return { error: 'Network error' };
         }

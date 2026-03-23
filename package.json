@@ -5,6 +5,9 @@
         "apps/*",
         "packages/*"
     ],
+    "overrides": {
+        "@sinclair/typebox": "0.34.33"
+    },
     "scripts": {
         "dev": "concurrently \"npm run dev:server\" \"npm run dev:web\"",
         "dev:server": "npm run dev --workspace=@laboratory/server",

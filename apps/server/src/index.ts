@@ -1,6 +1,8 @@
 import { Elysia } from 'elysia';
 import { cors } from '@elysiajs/cors';
 import { swagger } from '@elysiajs/swagger';
+import { createLogger, traceContext, generateTraceId, getTraceId } from '@laboratory/shared';
+import { waitForDatabase } from '@laboratory/db';
 import { config } from './infrastructure/config';
 import { authRoutes } from './presentation/routes/auth';
 import { productRoutes } from './presentation/routes/products';
@@ -13,20 +15,14 @@ import { reportRoutes } from './presentation/routes/reports';
 import { orderRoutes } from './presentation/routes/orders';
 import { dashboardRoutes } from './presentation/routes/dashboard';
 
-const getColor = (status: number) => {
-    if (status >= 500) return '\x1b[31m'; // red
-    if (status >= 400) return '\x1b[33m'; // yellow
-    if (status >= 300) return '\x1b[36m'; // cyan
-    return '\x1b[32m'; // green
-};
+// Initialize Winston logger
+const logger = createLogger(config.logging.jsonFormat);
 
-const reset = '\x1b[0m';
-const gray = '\x1b[90m';
-const bright = '\x1b[1m';
+// Track request timings
+const requestTimings = new Map<string, number>();
 
-const shouldLogRequests = config.logging.requests && !config.logging.jsonFormat;
-
-const app = new Elysia()
+// Build app instance (exported for type inference)
+const buildApp = () => new Elysia()
     .use(cors({
         origin: config.cors.origins,
         methods: config.cors.methods,
@@ -42,28 +38,64 @@ const app = new Elysia()
             },
         })
     )
-    // Request Logger Middleware
+    // Tracing Middleware
     .onBeforeHandle(({ request, path }) => {
-        if (!shouldLogRequests) return;
-        const timestamp = new Date().toISOString();
-        const method = request.method.toUpperCase().padEnd(7);
-        console.log(`${gray}${timestamp}${reset} ${bright}${method}${reset} ${path}`);
+        if (!config.logging.requests) return;
+
+        const traceId = generateTraceId();
+        const startTime = Date.now();
+        requestTimings.set(traceId, startTime);
+
+        return traceContext.run(traceId, () => {
+            logger.info({
+                message: 'request_start',
+                method: request.method,
+                path,
+            });
+        });
     })
     .onAfterHandle(({ request, path, set }) => {
-        if (!shouldLogRequests) return;
-        const timestamp = new Date().toISOString();
-        const method = request.method.toUpperCase().padEnd(7);
+        if (!config.logging.requests) return;
+
+        const traceId = getTraceId();
+        const startTime = traceId ? requestTimings.get(traceId) : undefined;
+        const duration = startTime ? Date.now() - startTime : undefined;
+
+        if (traceId) {
+            requestTimings.delete(traceId);
+        }
+
         const status = typeof set.status === 'number' ? set.status : 200;
-        const color = getColor(status);
-        console.log(`${gray}${timestamp}${reset} ${bright}${method}${reset} ${path} ${color}${status}${reset}`);
+        logger.info({
+            message: 'request_end',
+            method: request.method,
+            path,
+            status,
+            duration,
+        });
     })
     .onError(({ request, path, error, set }) => {
-        if (!shouldLogRequests) return;
-        const timestamp = new Date().toISOString();
-        const method = request.method.toUpperCase().padEnd(7);
+        const traceId = getTraceId();
+        const startTime = traceId ? requestTimings.get(traceId) : undefined;
+        const duration = startTime ? Date.now() - startTime : undefined;
+
+        if (traceId) {
+            requestTimings.delete(traceId);
+        }
+
         const status = typeof set.status === 'number' ? set.status : 500;
-        const color = getColor(status);
-        console.error(`${gray}${timestamp}${reset} ${bright}${method}${reset} ${path} ${color}${status}${reset} - ${error}`);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorStack = error instanceof Error ? error.stack : undefined;
+
+        logger.error({
+            message: 'request_error',
+            method: request.method,
+            path,
+            status,
+            error: errorMessage,
+            stack: errorStack,
+            duration,
+        });
     })
     .get('/health', () => ({ status: 'ok' }))
     .use(authRoutes)
@@ -75,14 +107,33 @@ const app = new Elysia()
     .use(notificationRoutes)
     .use(reportRoutes)
     .use(orderRoutes)
-    .use(dashboardRoutes)
-    .listen({
+    .use(dashboardRoutes);
+
+// Export type for client
+export type App = ReturnType<typeof buildApp>;
+
+const startServer = async () => {
+    // Wait for database to be ready before starting
+    logger.info('Waiting for database connection...');
+    try {
+        await waitForDatabase();
+    } catch (error) {
+        logger.error({
+            message: 'Failed to connect to database',
+            error: error instanceof Error ? error.message : String(error),
+        });
+        process.exit(1);
+    }
+
+    const app = buildApp().listen({
         port: config.server.port,
         hostname: config.server.host,
     });
 
-console.log(`🦊 Server running at ${app.server?.hostname}:${app.server?.port}`);
-console.log(`📚 Environment: ${process.env.NODE_ENV || 'development'}`);
-console.log(`📝 Log level: ${config.logging.level}`);
+    logger.info(`🦊 Server running at ${app.server?.hostname}:${app.server?.port}`);
+    logger.info(`📚 Environment: ${process.env.NODE_ENV || 'development'}`);
+    logger.info(`📝 Log level: ${config.logging.level}`);
+    logger.info(`📋 JSON format: ${config.logging.jsonFormat}`);
+};
 
-export type App = typeof app;
+startServer();

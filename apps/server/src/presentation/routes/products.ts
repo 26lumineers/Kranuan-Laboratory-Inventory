@@ -1,6 +1,6 @@
 import { Elysia, t } from 'elysia';
-import { db, products, type NewProduct } from '@laboratory/db';
-import { eq } from 'drizzle-orm';
+import { db, products, inventoryStocks, type NewProduct } from '@laboratory/db';
+import { eq, gt } from 'drizzle-orm';
 import { authenticateUser } from '../middleware/auth';
 
 export const productRoutes = new Elysia({ prefix: '/products' })
@@ -9,6 +9,25 @@ export const productRoutes = new Elysia({ prefix: '/products' })
         await authenticateUser(headers);
         // All users can view products (needed to place orders)
         const result = await db.select().from(products);
+        return result;
+    })
+    // Get available products for ordering (with stock > 0, but NO stock quantity shown)
+    // Used by GENERAL users to place orders
+    .get('/available', async ({ headers }) => {
+        const user = await authenticateUser(headers);
+        // Return products that have stock > 0, but don't include quantity
+        const result = await db
+            .select({
+                id: products.id,
+                name: products.name,
+                unit: products.unit,
+                category: products.category,
+                description: products.description,
+            })
+            .from(products)
+            .innerJoin(inventoryStocks, eq(products.id, inventoryStocks.productId))
+            .where(gt(inventoryStocks.quantity, 0));
+        console.log(`[Products Available] User: ${user.username} (${user.role}) - Found ${result.length} products`);
         return result;
     })
     .get('/:id', async ({ params, headers }) => {
@@ -38,6 +57,7 @@ export const productRoutes = new Elysia({ prefix: '/products' })
             body: t.Object({
                 name: t.String(),
                 unit: t.String(),
+                category: t.Optional(t.String()),
                 description: t.Optional(t.String()),
                 lowStockThreshold: t.Optional(t.Number()),
             }),
@@ -63,6 +83,7 @@ export const productRoutes = new Elysia({ prefix: '/products' })
             body: t.Object({
                 name: t.Optional(t.String()),
                 unit: t.Optional(t.String()),
+                category: t.Optional(t.String()),
                 description: t.Optional(t.String()),
                 lowStockThreshold: t.Optional(t.Number()),
                 isActive: t.Optional(t.Boolean()),
