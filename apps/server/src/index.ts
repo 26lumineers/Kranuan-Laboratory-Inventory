@@ -38,13 +38,33 @@ const buildApp = () => new Elysia()
             },
         })
     )
-    // Tracing Middleware
-    .onBeforeHandle(({ request, path }) => {
-        if (!config.logging.requests) return;
-
+    // Early request handling - runs before any other lifecycle
+    // Use for: rate limiting, IP filtering, request ID generation
+    .onRequest(({ request, set }) => {
+        // Generate trace ID early in the request lifecycle
         const traceId = generateTraceId();
         const startTime = Date.now();
         requestTimings.set(traceId, startTime);
+
+        // Store trace ID in headers for correlation
+        set.headers['X-Trace-Id'] = traceId;
+
+        return traceContext.run(traceId, () => {
+            if (config.logging.requests) {
+                logger.info({
+                    message: 'request_received',
+                    method: request.method,
+                    url: request.url,
+                });
+            }
+        });
+    })
+    // Tracing Middleware - runs after validation but before route handler
+    .onBeforeHandle(({ request, path }) => {
+        if (!config.logging.requests) return;
+
+        const traceId = getTraceId();
+        if (!traceId) return;
 
         return traceContext.run(traceId, () => {
             logger.info({
@@ -61,20 +81,34 @@ const buildApp = () => new Elysia()
         const startTime = traceId ? requestTimings.get(traceId) : undefined;
         const duration = startTime ? Date.now() - startTime : undefined;
 
-        if (traceId) {
-            requestTimings.delete(traceId);
-        }
-
-        const status = typeof set.status === 'number' ? set.status : 200;
+        const statusCode = typeof set.status === 'number' ? set.status : 200;
         logger.info({
             message: 'request_end',
             method: request.method,
             path,
-            status,
+            status: statusCode,
             duration,
         });
     })
-    .onError(({ request, path, error, set }) => {
+    // Cleanup and analytics - runs after response is sent (non-blocking)
+    .onAfterResponse(({ request, path, set }) => {
+        const traceId = getTraceId();
+        if (traceId) {
+            requestTimings.delete(traceId);
+        }
+
+        // Future: Record metrics, analytics, audit logs
+        if (config.logging.requests) {
+            logger.info({
+                message: 'response_sent',
+                method: request.method,
+                path,
+                status: typeof set.status === 'number' ? set.status : 200,
+            });
+        }
+    })
+    // Global error handling with Elysia error codes
+    .onError(({ code, error, request, path, status }) => {
         const traceId = getTraceId();
         const startTime = traceId ? requestTimings.get(traceId) : undefined;
         const duration = startTime ? Date.now() - startTime : undefined;
@@ -83,19 +117,70 @@ const buildApp = () => new Elysia()
             requestTimings.delete(traceId);
         }
 
-        const status = typeof set.status === 'number' ? set.status : 500;
         const errorMessage = error instanceof Error ? error.message : String(error);
         const errorStack = error instanceof Error ? error.stack : undefined;
 
-        logger.error({
-            message: 'request_error',
-            method: request.method,
-            path,
-            status,
-            error: errorMessage,
-            stack: errorStack,
-            duration,
-        });
+        // Handle different error codes
+        switch (code) {
+            case 'NOT_FOUND':
+                logger.warn({
+                    message: 'route_not_found',
+                    method: request.method,
+                    path,
+                    duration,
+                });
+                return status(404, { error: 'Resource not found', path });
+
+            case 'VALIDATION':
+                logger.warn({
+                    message: 'validation_error',
+                    method: request.method,
+                    path,
+                    error: errorMessage,
+                    duration,
+                });
+                return status(400, { error: 'Validation failed', details: errorMessage });
+
+            case 'PARSE':
+                logger.warn({
+                    message: 'parse_error',
+                    method: request.method,
+                    path,
+                    error: errorMessage,
+                    duration,
+                });
+                return status(400, { error: 'Invalid request body', details: errorMessage });
+
+            case 'INVALID_COOKIE_SIGNATURE':
+                logger.warn({
+                    message: 'invalid_cookie',
+                    method: request.method,
+                    path,
+                    duration,
+                });
+                return status(400, { error: 'Invalid cookie signature' });
+
+            case 'INVALID_FILE_TYPE':
+                logger.warn({
+                    message: 'invalid_file_type',
+                    method: request.method,
+                    path,
+                    error: errorMessage,
+                    duration,
+                });
+                return status(400, { error: 'Invalid file type', details: errorMessage });
+
+            default:
+                logger.error({
+                    message: 'internal_error',
+                    method: request.method,
+                    path,
+                    error: errorMessage,
+                    stack: errorStack,
+                    duration,
+                });
+                return status(500, { error: 'Internal server error' });
+        }
     })
     .get('/health', () => ({ status: 'ok' }))
     .use(authRoutes)

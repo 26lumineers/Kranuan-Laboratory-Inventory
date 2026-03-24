@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import { IRootState } from '../store';
 import { withAuth } from '../components/Auth/withAuth';
 import { api } from '../utils/api';
+import Link from 'next/link';
 import LabLayout from '../components/Layouts/LabLayout';
 
 interface TransactionItem {
@@ -31,6 +32,18 @@ interface Transaction {
     items?: TransactionItem[];
 }
 
+interface Pagination {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+}
+
+interface TransactionsResponse {
+    data: Transaction[];
+    pagination: Pagination;
+}
+
 const TransactionsPage = () => {
     const { user } = useSelector((state: IRootState) => state.auth);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -38,26 +51,21 @@ const TransactionsPage = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [dateFilter, setDateFilter] = useState('');
     const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+    const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 20, total: 0, totalPages: 0 });
 
     const isSuperAdmin = user?.role === 'SUPERADMIN';
     const isAdmin = user?.role === 'ADMIN' || isSuperAdmin;
 
     useEffect(() => {
-        fetchTransactions();
+        fetchTransactions(1);
     }, []);
 
-    const fetchTransactions = async () => {
+    const fetchTransactions = async (page: number = pagination.page) => {
         setIsLoading(true);
-        const response = await api.get<Transaction[]>('/transactions');
+        const response = await api.get<TransactionsResponse>(`/transactions?page=${page}&limit=20`);
         if (response.data) {
-            // Fetch items for each transaction
-            const transactionsWithItems = await Promise.all(
-                response.data.map(async (tx) => {
-                    const detailRes = await api.get<Transaction>(`/transactions/${tx.id}`);
-                    return detailRes.data ? { ...tx, items: detailRes.data.items } : tx;
-                })
-            );
-            setTransactions(transactionsWithItems);
+            setTransactions(response.data.data);
+            setPagination(response.data.pagination);
         }
         setIsLoading(false);
     };
@@ -80,10 +88,24 @@ const TransactionsPage = () => {
         }
     };
 
+    const goToPage = (page: number) => {
+        if (page >= 1 && page <= pagination.totalPages) {
+            fetchTransactions(page);
+        }
+    };
+
     return (
         <div className="p-4 md:p-6">
             <div className="mb-6">
-                <h1 className="text-2xl font-bold md:text-3xl">Transactions</h1>
+                <div className="flex items-center gap-4">
+                    <Link href="/dashboard" className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary">
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Back to Dashboard
+                    </Link>
+                </div>
+                <h1 className="mt-2 text-2xl font-bold md:text-3xl">Transactions</h1>
                 <p className="mt-1 text-gray-500">View order history and transaction details</p>
             </div>
 
@@ -167,6 +189,48 @@ const TransactionsPage = () => {
 
                 {!isLoading && filteredTransactions.length === 0 && (
                     <p className="py-8 text-center text-gray-500">No transactions found</p>
+                )}
+
+                {/* Pagination */}
+                {pagination.totalPages > 1 && (
+                    <div className="flex items-center justify-between border-t px-4 py-3 dark:border-gray-700">
+                        <div className="text-sm text-gray-500">
+                            Showing page {pagination.page} of {pagination.totalPages} ({pagination.total} total)
+                        </div>
+                        <div className="flex gap-1">
+                            <button
+                                onClick={() => goToPage(1)}
+                                disabled={pagination.page === 1}
+                                className="btn btn-sm disabled:opacity-50"
+                            >
+                                First
+                            </button>
+                            <button
+                                onClick={() => goToPage(pagination.page - 1)}
+                                disabled={pagination.page === 1}
+                                className="btn btn-sm disabled:opacity-50"
+                            >
+                                Prev
+                            </button>
+                            <span className="flex items-center px-3 text-sm">
+                                {pagination.page}
+                            </span>
+                            <button
+                                onClick={() => goToPage(pagination.page + 1)}
+                                disabled={pagination.page === pagination.totalPages}
+                                className="btn btn-sm disabled:opacity-50"
+                            >
+                                Next
+                            </button>
+                            <button
+                                onClick={() => goToPage(pagination.totalPages)}
+                                disabled={pagination.page === pagination.totalPages}
+                                className="btn btn-sm disabled:opacity-50"
+                            >
+                                Last
+                            </button>
+                        </div>
+                    </div>
                 )}
             </div>
 

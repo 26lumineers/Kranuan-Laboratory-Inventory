@@ -10,40 +10,35 @@ import {
 
 export const dashboardRoutes = new Elysia({ prefix: '/dashboard' })
     // Get full dashboard data - ADMIN and SUPERADMIN only
-    .get('/', async ({ headers, set }) => {
+    .get('/', async ({ headers, status }) => {
         const user = await authenticateUser(headers);
 
-        // Only ADMIN and SUPERADMIN can view dashboard
         if (user.role === 'GENERAL') {
-            set.status = 403;
-            return { error: 'You do not have permission to view dashboard' };
+            return status(403, { error: 'You do not have permission to view dashboard' });
         }
 
         return getDashboardData();
     })
     // Get dashboard statistics only
-    .get('/stats', async ({ headers, set }) => {
+    .get('/stats', async ({ headers, status }) => {
         const user = await authenticateUser(headers);
 
         if (user.role === 'GENERAL') {
-            set.status = 403;
-            return { error: 'You do not have permission to view dashboard stats' };
+            return status(403, { error: 'You do not have permission to view dashboard stats' });
         }
 
         return getDashboardStats();
     })
     // Get stock ratio items (items going out of stock with percentage)
-    .get('/stock-ratio', async ({ headers, set, query }) => {
+    .get('/stock-ratio', async ({ headers, status, query }) => {
         const user = await authenticateUser(headers);
 
         if (user.role === 'GENERAL') {
-            set.status = 403;
-            return { error: 'You do not have permission to view stock ratio' };
+            return status(403, { error: 'You do not have permission to view stock ratio' });
         }
 
         const items = await getStockRatioItems();
 
-        // Filter by status if provided
         if (query.status) {
             return items.filter((item) => item.status === query.status);
         }
@@ -60,23 +55,21 @@ export const dashboardRoutes = new Elysia({ prefix: '/dashboard' })
         }),
     })
     // Get out of stock items
-    .get('/out-of-stock', async ({ headers, set }) => {
+    .get('/out-of-stock', async ({ headers, status }) => {
         const user = await authenticateUser(headers);
 
         if (user.role === 'GENERAL') {
-            set.status = 403;
-            return { error: 'You do not have permission to view out of stock items' };
+            return status(403, { error: 'You do not have permission to view out of stock items' });
         }
 
         return getOutOfStockItems();
     })
     // Get stock summary by status (counts)
-    .get('/stock-summary', async ({ headers, set }) => {
+    .get('/stock-summary', async ({ headers, status }) => {
         const user = await authenticateUser(headers);
 
         if (user.role === 'GENERAL') {
-            set.status = 403;
-            return { error: 'You do not have permission to view stock summary' };
+            return status(403, { error: 'You do not have permission to view stock summary' });
         }
 
         return getStockSummaryByStatus();

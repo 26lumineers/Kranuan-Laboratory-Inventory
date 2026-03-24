@@ -23,7 +23,7 @@ export interface AuthState {
 
 const initialState: AuthState = {
     user: null,
-    token: typeof window !== 'undefined' ? localStorage.getItem('token') : null,
+    token: typeof window !== 'undefined' ? sessionStorage.getItem('token') : null,
     isAuthenticated: false,
     isLoading: false,
     error: null,
@@ -49,8 +49,8 @@ export const login = createAsyncThunk(
                 return rejectWithValue(data.error || 'Login failed');
             }
 
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('user', JSON.stringify(data.user));
+            sessionStorage.setItem('token', data.token);
+            sessionStorage.setItem('user', JSON.stringify(data.user));
 
             return data;
         } catch (error) {
@@ -63,7 +63,7 @@ export const fetchCurrentUser = createAsyncThunk(
     'auth/fetchCurrentUser',
     async (_, { getState, rejectWithValue }) => {
         try {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             if (!token) {
                 return rejectWithValue('No token found');
             }
@@ -77,8 +77,8 @@ export const fetchCurrentUser = createAsyncThunk(
             const data = await response.json();
 
             if (!response.ok) {
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
+                sessionStorage.removeItem('token');
+                sessionStorage.removeItem('user');
                 return rejectWithValue(data.error || 'Failed to fetch user');
             }
 
@@ -90,8 +90,8 @@ export const fetchCurrentUser = createAsyncThunk(
 );
 
 export const logout = createAsyncThunk('auth/logout', async () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
     return null;
 });
 

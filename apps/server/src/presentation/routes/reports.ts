@@ -12,11 +12,10 @@ export const reportRoutes = new Elysia({ prefix: '/reports' })
     // Daily report - ADMIN and SUPERADMIN only
     .get(
         '/daily',
-        async ({ query, headers, set }) => {
+        async ({ query, headers, status }) => {
             const user = await authenticateUser(headers);
-            if (!canViewReports(user.role as UserRole)) {
-                set.status = 403;
-                return { error: 'You do not have permission to view reports' };
+            if (!canViewReports(user.role)) {
+                return status(403, { error: 'You do not have permission to view reports' });
             }
             const date = query.date ? new Date(query.date) : new Date();
             const startOfDay = new Date(date);
@@ -81,11 +80,10 @@ export const reportRoutes = new Elysia({ prefix: '/reports' })
     // Weekly report - ADMIN and SUPERADMIN only
     .get(
         '/weekly',
-        async ({ query, headers, set }) => {
+        async ({ query, headers, status }) => {
             const user = await authenticateUser(headers);
-            if (!canViewReports(user.role as UserRole)) {
-                set.status = 403;
-                return { error: 'You do not have permission to view reports' };
+            if (!canViewReports(user.role)) {
+                return status(403, { error: 'You do not have permission to view reports' });
             }
             const startDate = query.startDate ? new Date(query.startDate) : new Date();
             startDate.setHours(0, 0, 0, 0);
@@ -141,11 +139,10 @@ export const reportRoutes = new Elysia({ prefix: '/reports' })
     // Monthly report - ADMIN and SUPERADMIN only
     .get(
         '/monthly',
-        async ({ query, headers, set }) => {
+        async ({ query, headers, status }) => {
             const user = await authenticateUser(headers);
-            if (!canViewReports(user.role as UserRole)) {
-                set.status = 403;
-                return { error: 'You do not have permission to view reports' };
+            if (!canViewReports(user.role)) {
+                return status(403, { error: 'You do not have permission to view reports' });
             }
             const year = query.year ? parseInt(query.year) : new Date().getFullYear();
             const month = query.month ? parseInt(query.month) - 1 : new Date().getMonth();
@@ -202,11 +199,10 @@ export const reportRoutes = new Elysia({ prefix: '/reports' })
     // By room report - ADMIN and SUPERADMIN only
     .get(
         '/by-room',
-        async ({ query, headers, set }) => {
+        async ({ query, headers, status }) => {
             const user = await authenticateUser(headers);
-            if (!canViewReports(user.role as UserRole)) {
-                set.status = 403;
-                return { error: 'You do not have permission to view reports' };
+            if (!canViewReports(user.role)) {
+                return status(403, { error: 'You do not have permission to view reports' });
             }
             const startDate = query.startDate ? new Date(query.startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
             const endDate = query.endDate ? new Date(query.endDate) : new Date();
@@ -252,11 +248,10 @@ export const reportRoutes = new Elysia({ prefix: '/reports' })
     // By user report - ADMIN and SUPERADMIN only
     .get(
         '/by-user',
-        async ({ query, headers, set }) => {
+        async ({ query, headers, status }) => {
             const user = await authenticateUser(headers);
-            if (!canViewReports(user.role as UserRole)) {
-                set.status = 403;
-                return { error: 'You do not have permission to view reports' };
+            if (!canViewReports(user.role)) {
+                return status(403, { error: 'You do not have permission to view reports' });
             }
             const startDate = query.startDate ? new Date(query.startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
             const endDate = query.endDate ? new Date(query.endDate) : new Date();
@@ -301,11 +296,10 @@ export const reportRoutes = new Elysia({ prefix: '/reports' })
         }
     )
     // Inventory movements - ADMIN and SUPERADMIN only
-    .get('/inventory-movements', async ({ query, headers, set }) => {
+    .get('/inventory-movements', async ({ query, headers, status }) => {
         const user = await authenticateUser(headers);
-        if (!canViewReports(user.role as UserRole)) {
-            set.status = 403;
-            return { error: 'You do not have permission to view reports' };
+        if (!canViewReports(user.role)) {
+            return status(403, { error: 'You do not have permission to view reports' });
         }
         const startDate = query.startDate ? new Date(query.startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
         const endDate = query.endDate ? new Date(query.endDate) : new Date();

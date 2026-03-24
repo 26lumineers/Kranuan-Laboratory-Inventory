@@ -16,11 +16,10 @@ const isAdminTier = (user: AuthUser): boolean => {
 
 export const inventoryRoutes = new Elysia({ prefix: '/inventory' })
     // View stock - ADMIN and SUPERADMIN only
-    .get('/', async ({ headers, set }) => {
+    .get('/', async ({ headers, status }) => {
         const user = await authenticateUser(headers);
         if (!isAdminTier(user)) {
-            set.status = 403;
-            return { error: 'You do not have permission to view stock' };
+            return status(403, { error: 'You do not have permission to view stock' });
         }
         return listInventoryStocks();
     })
@@ -30,22 +29,20 @@ export const inventoryRoutes = new Elysia({ prefix: '/inventory' })
         console.log(JSON.stringify({ timestamp: new Date().toISOString(), action: 'listInventoryStocksForGeneral', userId: user.id, role: user.role }));
         return listInventoryStocksForGeneral();
     })
-    .get('/low-stock', async ({ headers, set }) => {
+    .get('/low-stock', async ({ headers, status }) => {
         const user = await authenticateUser(headers);
         if (!isAdminTier(user)) {
-            set.status = 403;
-            return { error: 'You do not have permission to view stock' };
+            return status(403, { error: 'You do not have permission to view stock' });
         }
         return listLowStockInventory();
     })
     // Restock - SUPERADMIN only
     .post(
         '/restock',
-        async ({ body, headers, set }) => {
+        async ({ body, headers, status }) => {
             const user = await authenticateUser(headers);
             if (user.role !== USER_ROLES.SUPERADMIN) {
-                set.status = 403;
-                return { error: 'Only SUPERADMIN can restock inventory' };
+                return status(403, { error: 'Only SUPERADMIN can restock inventory' });
             }
             return restockInventory({ ...body, userId: user.id });
         },
@@ -59,11 +56,10 @@ export const inventoryRoutes = new Elysia({ prefix: '/inventory' })
     // Adjust inventory - SUPERADMIN only
     .post(
         '/adjust',
-        async ({ body, headers, set }) => {
+        async ({ body, headers, status }) => {
             const user = await authenticateUser(headers);
             if (user.role !== USER_ROLES.SUPERADMIN) {
-                set.status = 403;
-                return { error: 'Only SUPERADMIN can adjust inventory' };
+                return status(403, { error: 'Only SUPERADMIN can adjust inventory' });
             }
             return adjustInventory({ ...body, userId: user.id });
         },

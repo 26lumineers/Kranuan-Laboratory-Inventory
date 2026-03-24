@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import { IRootState } from '../store';
 import { withAuth } from '../components/Auth/withAuth';
 import { api } from '../utils/api';
+import Link from 'next/link';
 import LabLayout from '../components/Layouts/LabLayout';
 
 type ReportType = 'daily' | 'weekly' | 'monthly' | 'by-room' | 'by-user' | 'movements';
@@ -152,7 +153,15 @@ const ReportsPage = () => {
     return (
         <div className="p-4 md:p-6">
             <div className="mb-6">
-                <h1 className="text-2xl font-bold md:text-3xl">Reports & Analytics</h1>
+                <div className="flex items-center gap-4">
+                    <Link href="/dashboard" className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary">
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Back to Dashboard
+                    </Link>
+                </div>
+                <h1 className="mt-2 text-2xl font-bold md:text-3xl">Reports & Analytics</h1>
                 <p className="mt-1 text-gray-500">View transaction reports and inventory analytics</p>
             </div>
 

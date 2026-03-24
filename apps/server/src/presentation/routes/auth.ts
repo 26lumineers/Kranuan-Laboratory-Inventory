@@ -1,16 +1,15 @@
 import { Elysia, t } from 'elysia';
-import { authenticateUser, registerUser } from '../../application/services/auth.service';
-import { authenticateUser as verifyAuth } from '../middleware/auth';
+import { authenticateUser as login, registerUser } from '../../application/services/auth.service';
+import { authenticateUser } from '../middleware/auth';
 
 export const authRoutes = new Elysia({ prefix: '/auth' })
     // Login - No auth required
     .post(
         '/login',
-        async ({ body, set }) => {
-            const result = await authenticateUser(body);
+        async ({ body, status }) => {
+            const result = await login(body);
             if (!result) {
-                set.status = 401;
-                return { error: 'Invalid username or password' };
+                return status(401, { error: 'Invalid username or password' });
             }
             return result;
         },
@@ -24,14 +23,13 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
     // Register - SUPERADMIN only (create new users)
     .post(
         '/register',
-        async ({ body, set }) => {
+        async ({ body, status }) => {
             try {
                 const user = await registerUser(body);
                 console.log('Registered user:', user);
                 return { user };
             } catch (error) {
-                set.status = 400;
-                return { error: error instanceof Error ? error.message : 'Registration failed' };
+                return status(400, { error: error instanceof Error ? error.message : 'Registration failed' });
             }
         },
         {
@@ -46,12 +44,11 @@ export const authRoutes = new Elysia({ prefix: '/auth' })
         }
     )
     // Get current user - Auth required
-    .get('/me', async ({ headers, set }) => {
+    .get('/me', async ({ headers, status }) => {
         try {
-            const user = await verifyAuth(headers);
+            const user = await authenticateUser(headers);
             return { user };
         } catch (error) {
-            set.status = 401;
-            return { error: error instanceof Error ? error.message : 'Authentication failed' };
+            return status(401, { error: error instanceof Error ? error.message : 'Authentication failed' });
         }
     });

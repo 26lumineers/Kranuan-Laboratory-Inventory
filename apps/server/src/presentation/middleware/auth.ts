@@ -1,4 +1,4 @@
-import { Elysia, Context } from 'elysia';
+import { Elysia } from 'elysia';
 import { verifyToken, findUserById } from '../../application/services/auth.service';
 
 export type UserRole = 'SUPERADMIN' | 'ADMIN' | 'GENERAL';
@@ -75,14 +75,22 @@ export async function authenticateUser(headers: Record<string, string | undefine
  * Authentication middleware using JWT with 2-hour expiration
  * Validates Bearer token from Authorization header
  * Attaches authenticated user to request context
+ *
+ * Uses `derive` to add user to context before validation.
  */
 export const authMiddleware = new Elysia({ name: 'auth' })
-    .derive(async ({ headers, set }) => {
+    .state('user', null as AuthUser | null)
+    .derive(async ({ headers, status, store }) => {
+        // Skip if already authenticated
+        if (store.user) return { user: store.user };
+
         try {
             const user = await authenticateUser(headers);
+            store.user = user;
             return { user };
         } catch (error) {
-            set.status = error instanceof Error && error.message.includes('inactive') ? 403 : 401;
-            throw error;
+            const message = error instanceof Error ? error.message : 'Authentication failed';
+            const code = message.includes('inactive') || message.includes('deleted') ? 403 : 401;
+            throw status(code, { error: message });
         }
     });

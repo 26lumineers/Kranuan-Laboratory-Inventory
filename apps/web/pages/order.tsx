@@ -4,6 +4,7 @@ import { IRootState } from '../store';
 import { withAuth } from '../components/Auth/withAuth';
 import { api } from '../utils/api';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import LabLayout from '../components/Layouts/LabLayout';
 
 interface Product {
@@ -198,18 +199,22 @@ const OrderPage = () => {
         if (response.error) {
             setError(response.error);
         } else {
-            setSuccess(true);
-            setOrderItems([]);
-            setNote('');
-            // Only redirect admin/superadmin to transactions page
-            // GENERAL users stay on order page to place more orders
-            if (user?.role !== 'GENERAL') {
-                setTimeout(() => {
-                    router.push('/transactions');
-                }, 2000);
-            }
+            router.push('/order?success=true');
         }
     };
+
+    // Check for success query param on mount
+    useEffect(() => {
+        if (router.query.success === 'true') {
+            setSuccess(true);
+            // Clear the query param after showing success
+            const timer = setTimeout(() => {
+                setSuccess(false);
+                router.replace('/order', undefined, { shallow: true });
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [router.query.success]);
 
     if (success) {
         return (
@@ -221,7 +226,7 @@ const OrderPage = () => {
                         </svg>
                     </div>
                     <h2 className="text-xl font-bold text-green-600">Order Submitted!</h2>
-                    <p className="mt-2 text-gray-500">Redirecting to transactions...</p>
+                    <p className="mt-2 text-gray-500">Redirecting...</p>
                 </div>
             </div>
         );
@@ -230,7 +235,15 @@ const OrderPage = () => {
     return (
         <div className="p-4 md:p-6">
             <div className="mb-6">
-                <h1 className="text-2xl font-bold md:text-3xl">Order Items</h1>
+                <div className="flex items-center gap-4">
+                    <Link href="/dashboard" className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary">
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Back to Dashboard
+                    </Link>
+                </div>
+                <h1 className="mt-2 text-2xl font-bold md:text-3xl">Order Items</h1>
                 <p className="mt-1 text-gray-500">Select items from inventory to request</p>
             </div>
 

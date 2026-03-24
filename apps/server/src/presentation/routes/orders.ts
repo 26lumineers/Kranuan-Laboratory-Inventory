@@ -13,7 +13,7 @@ import {
 
 export const orderRoutes = new Elysia({ prefix: '/orders' })
     // List orders - All authenticated users (GENERAL sees own, ADMIN/SUPERADMIN sees all)
-    .get('/', async ({ headers, set, query }) => {
+    .get('/', async ({ headers, query }) => {
         const user = await authenticateUser(headers);
 
         // GENERAL users can only see their own orders
@@ -41,19 +41,17 @@ export const orderRoutes = new Elysia({ prefix: '/orders' })
         }),
     })
     // Get order by ID
-    .get('/:id', async ({ params, headers, set }) => {
+    .get('/:id', async ({ params, headers, status }) => {
         const user = await authenticateUser(headers);
         const order = await getOrderById(params.id);
 
         if (!order) {
-            set.status = 404;
-            return { error: 'Order not found' };
+            return status(404, { error: 'Order not found' });
         }
 
         // GENERAL users can only view their own orders
         if (user.role === 'GENERAL' && order.userId !== user.id) {
-            set.status = 403;
-            return { error: 'You can only view your own orders' };
+            return status(403, { error: 'You can only view your own orders' });
         }
 
         return order;
@@ -61,7 +59,7 @@ export const orderRoutes = new Elysia({ prefix: '/orders' })
     // Create order - All authenticated users
     .post(
         '/',
-        async ({ body, headers, set }) => {
+        async ({ body, headers, status }) => {
             const user = await authenticateUser(headers);
 
             // Users can only create orders for themselves
@@ -72,8 +70,7 @@ export const orderRoutes = new Elysia({ prefix: '/orders' })
                 items: body.items,
             });
 
-            set.status = 201;
-            return order;
+            return status(201, order);
         },
         {
             body: t.Object({
@@ -93,20 +90,18 @@ export const orderRoutes = new Elysia({ prefix: '/orders' })
     // Approve order - ADMIN and SUPERADMIN only
     .post(
         '/:id/approve',
-        async ({ params, body, headers, set }) => {
+        async ({ params, body, headers, status }) => {
             const user = await authenticateUser(headers);
 
             if (user.role === 'GENERAL') {
-                set.status = 403;
-                return { error: 'Only ADMIN or SUPERADMIN can approve orders' };
+                return status(403, { error: 'Only ADMIN or SUPERADMIN can approve orders' });
             }
 
             try {
                 const order = await approveOrder(params.id, user.id, body?.adminNote);
                 return order;
             } catch (error) {
-                set.status = 400;
-                return { error: error instanceof Error ? error.message : 'Failed to approve order' };
+                return status(400, { error: error instanceof Error ? error.message : 'Failed to approve order' });
             }
         },
         {
@@ -118,20 +113,18 @@ export const orderRoutes = new Elysia({ prefix: '/orders' })
     // Reject order - ADMIN and SUPERADMIN only
     .post(
         '/:id/reject',
-        async ({ params, body, headers, set }) => {
+        async ({ params, body, headers, status }) => {
             const user = await authenticateUser(headers);
 
             if (user.role === 'GENERAL') {
-                set.status = 403;
-                return { error: 'Only ADMIN or SUPERADMIN can reject orders' };
+                return status(403, { error: 'Only ADMIN or SUPERADMIN can reject orders' });
             }
 
             try {
                 const order = await rejectOrder(params.id, user.id, body?.adminNote);
                 return order;
             } catch (error) {
-                set.status = 400;
-                return { error: error instanceof Error ? error.message : 'Failed to reject order' };
+                return status(400, { error: error instanceof Error ? error.message : 'Failed to reject order' });
             }
         },
         {
@@ -143,20 +136,18 @@ export const orderRoutes = new Elysia({ prefix: '/orders' })
     // Fulfill order - SUPERADMIN only (deducts inventory)
     .post(
         '/:id/fulfill',
-        async ({ params, body, headers, set }) => {
+        async ({ params, body, headers, status }) => {
             const user = await authenticateUser(headers);
 
             if (user.role !== 'SUPERADMIN') {
-                set.status = 403;
-                return { error: 'Only SUPERADMIN can fulfill orders' };
+                return status(403, { error: 'Only SUPERADMIN can fulfill orders' });
             }
 
             try {
                 const order = await fulfillOrder(params.id, user.id, body?.items);
                 return order;
             } catch (error) {
-                set.status = 400;
-                return { error: error instanceof Error ? error.message : 'Failed to fulfill order' };
+                return status(400, { error: error instanceof Error ? error.message : 'Failed to fulfill order' });
             }
         },
         {
@@ -175,39 +166,34 @@ export const orderRoutes = new Elysia({ prefix: '/orders' })
     // Cancel order - User can cancel own pending orders, SUPERADMIN can cancel any
     .post(
         '/:id/cancel',
-        async ({ params, headers, set }) => {
+        async ({ params, headers, status }) => {
             const user = await authenticateUser(headers);
             const order = await getOrderById(params.id);
 
             if (!order) {
-                set.status = 404;
-                return { error: 'Order not found' };
+                return status(404, { error: 'Order not found' });
             }
 
             // Users can only cancel their own pending orders
             if (user.role === 'GENERAL') {
                 if (order.userId !== user.id) {
-                    set.status = 403;
-                    return { error: 'You can only cancel your own orders' };
+                    return status(403, { error: 'You can only cancel your own orders' });
                 }
                 if (order.status !== 'PENDING') {
-                    set.status = 400;
-                    return { error: 'Can only cancel pending orders' };
+                    return status(400, { error: 'Can only cancel pending orders' });
                 }
             }
 
             // ADMIN can only cancel pending/approved orders
             if (user.role === 'ADMIN' && order.status !== 'PENDING' && order.status !== 'APPROVED') {
-                set.status = 400;
-                return { error: 'Can only cancel pending or approved orders' };
+                return status(400, { error: 'Can only cancel pending or approved orders' });
             }
 
             try {
                 const cancelledOrder = await cancelOrder(params.id, user.id);
                 return cancelledOrder;
             } catch (error) {
-                set.status = 400;
-                return { error: error instanceof Error ? error.message : 'Failed to cancel order' };
+                return status(400, { error: error instanceof Error ? error.message : 'Failed to cancel order' });
             }
         }
     );

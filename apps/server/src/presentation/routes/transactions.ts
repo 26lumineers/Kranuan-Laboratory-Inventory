@@ -1,44 +1,135 @@
 import { Elysia, t } from 'elysia';
-import { db, inventoryTransactions, inventoryTransactionItems, inventoryStocks, inventoryMovements } from '@laboratory/db';
-import { eq } from 'drizzle-orm';
+import { db, inventoryTransactions, inventoryTransactionItems, inventoryStocks, inventoryMovements, users, rooms, products } from '@laboratory/db';
+import { eq, desc, count } from 'drizzle-orm';
 import { authenticateUser } from '../middleware/auth';
 
 export const transactionRoutes = new Elysia({ prefix: '/transactions' })
     // List transactions - All authenticated users (GENERAL can see their own, ADMIN/SUPERADMIN see all)
-    .get('/', async ({ headers, set }) => {
-        const user = await authenticateUser(headers);
-        if (user.role === 'GENERAL') {
-            // General users can only see their own transactions
-            const result = await db.select().from(inventoryTransactions)
-                .where(eq(inventoryTransactions.userId, user.id));
-            return result;
-        }
-        // ADMIN and SUPERADMIN can see all
-        const result = await db.select().from(inventoryTransactions);
-        return result;
-    })
-    .get('/:id', async ({ params, headers, set }) => {
-        const user = await authenticateUser(headers);
-        const transaction = await db.select().from(inventoryTransactions).where(eq(inventoryTransactions.id, params.id));
+    .get(
+        '/',
+        async ({ headers, query }) => {
+            const user = await authenticateUser(headers);
+            const page = Number(query.page) || 1;
+            const limit = Number(query.limit) || 20;
+            const offset = (page - 1) * limit;
 
-        if (!transaction[0]) {
-            set.status = 404;
-            return { error: 'Transaction not found' };
+            const baseQuery = db
+                .select({
+                    id: inventoryTransactions.id,
+                    note: inventoryTransactions.note,
+                    createdAt: inventoryTransactions.createdAt,
+                    user: {
+                        id: users.id,
+                        fullName: users.fullName,
+                        nickname: users.nickname,
+                    },
+                    room: {
+                        id: rooms.id,
+                        name: rooms.name,
+                    },
+                })
+                .from(inventoryTransactions)
+                .innerJoin(users, eq(inventoryTransactions.userId, users.id))
+                .innerJoin(rooms, eq(inventoryTransactions.roomId, rooms.id))
+                .orderBy(desc(inventoryTransactions.createdAt));
+
+            const countQuery = db
+                .select({ count: count() })
+                .from(inventoryTransactions)
+                .innerJoin(users, eq(inventoryTransactions.userId, users.id))
+                .innerJoin(rooms, eq(inventoryTransactions.roomId, rooms.id));
+
+            if (user.role === 'GENERAL') {
+                // General users can only see their own transactions
+                const [data, totalResult] = await Promise.all([
+                    baseQuery.where(eq(inventoryTransactions.userId, user.id)).limit(limit).offset(offset),
+                    countQuery.where(eq(inventoryTransactions.userId, user.id)),
+                ]);
+                return {
+                    data,
+                    pagination: {
+                        page,
+                        limit,
+                        total: totalResult[0].count,
+                        totalPages: Math.ceil(totalResult[0].count / limit),
+                    },
+                };
+            }
+
+            // ADMIN and SUPERADMIN can see all
+            const [data, totalResult] = await Promise.all([
+                baseQuery.limit(limit).offset(offset),
+                countQuery,
+            ]);
+            return {
+                data,
+                pagination: {
+                    page,
+                    limit,
+                    total: totalResult[0].count,
+                    totalPages: Math.ceil(totalResult[0].count / limit),
+                },
+            };
+        },
+        {
+            query: t.Object({
+                page: t.Optional(t.String()),
+                limit: t.Optional(t.String()),
+            }),
+        }
+    )
+    .get('/:id', async ({ params, headers, status }) => {
+        const user = await authenticateUser(headers);
+        const [transaction] = await db
+            .select({
+                id: inventoryTransactions.id,
+                note: inventoryTransactions.note,
+                createdAt: inventoryTransactions.createdAt,
+                userId: inventoryTransactions.userId,
+                user: {
+                    id: users.id,
+                    fullName: users.fullName,
+                    nickname: users.nickname,
+                },
+                room: {
+                    id: rooms.id,
+                    name: rooms.name,
+                },
+            })
+            .from(inventoryTransactions)
+            .innerJoin(users, eq(inventoryTransactions.userId, users.id))
+            .innerJoin(rooms, eq(inventoryTransactions.roomId, rooms.id))
+            .where(eq(inventoryTransactions.id, params.id));
+
+        if (!transaction) {
+            return status(404, { error: 'Transaction not found' });
         }
 
         // GENERAL users can only view their own transactions
-        if (user.role === 'GENERAL' && transaction[0].userId !== user.id) {
-            set.status = 403;
-            return { error: 'You can only view your own transactions' };
+        if (user.role === 'GENERAL' && transaction.userId !== user.id) {
+            return status(403, { error: 'You can only view your own transactions' });
         }
 
-        const items = await db.select().from(inventoryTransactionItems).where(eq(inventoryTransactionItems.transactionId, params.id));
-        return { ...transaction[0], items };
+        const items = await db
+            .select({
+                id: inventoryTransactionItems.id,
+                quantity: inventoryTransactionItems.quantity,
+                product: {
+                    id: products.id,
+                    name: products.name,
+                    unit: products.unit,
+                },
+            })
+            .from(inventoryTransactionItems)
+            .innerJoin(products, eq(inventoryTransactionItems.productId, products.id))
+            .where(eq(inventoryTransactionItems.transactionId, params.id));
+
+        return { ...transaction, items };
     })
-    // Order items - All authenticated users can order (GENERAL, ADMIN, SUPERADMIN)
+    // Create transaction - All authenticated users can order (GENERAL, ADMIN, SUPERADMIN)
     .post(
         '/',
-        async ({ body, headers, set }) => {
+        async ({ body, headers }) => {
             const user = await authenticateUser(headers);
             const { roomId, note, items } = body;
 

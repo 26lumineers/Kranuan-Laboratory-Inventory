@@ -67,10 +67,10 @@ const Dashboard = () => {
                 api.get<Notification[]>('/notifications'),
             ]);
 
-            if (inventoryRes.data) setInventory(inventoryRes.data);
-            if (lowStockRes.data) setLowStockItems(lowStockRes.data);
-            if (transactionsRes.data) setRecentTransactions(transactionsRes.data.slice(0, 5));
-            if (notificationsRes.data) setNotifications(notificationsRes.data.slice(0, 5));
+            if (Array.isArray(inventoryRes.data)) setInventory(inventoryRes.data);
+            if (Array.isArray(lowStockRes.data)) setLowStockItems(lowStockRes.data);
+            if (Array.isArray(transactionsRes.data)) setRecentTransactions(transactionsRes.data.slice(0, 5));
+            if (Array.isArray(notificationsRes.data)) setNotifications(notificationsRes.data.slice(0, 5));
 
             setIsLoading(false);
         };

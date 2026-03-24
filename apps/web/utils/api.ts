@@ -9,8 +9,8 @@ export interface ApiResponse<T> {
 // Handle unauthorized response - clear token and redirect to login
 const handleUnauthorized = () => {
     if (typeof window !== 'undefined') {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
         window.location.href = '/auth/login';
     }
 };
@@ -28,7 +28,7 @@ export class ApiClient {
         };
 
         if (typeof window !== 'undefined') {
-            const token = localStorage.getItem('token');
+            const token = sessionStorage.getItem('token');
             if (token) {
                 headers['Authorization'] = `Bearer ${token}`;
             }

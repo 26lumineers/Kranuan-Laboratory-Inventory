@@ -6,11 +6,10 @@ import { authenticateUser } from '../middleware/auth';
 
 export const userRoutes = new Elysia({ prefix: '/users' })
     // List users - ADMIN and SUPERADMIN only (excludes soft-deleted)
-    .get('/', async ({ headers, set }) => {
+    .get('/', async ({ headers, status }) => {
         const user = await authenticateUser(headers);
         if (user.role === 'GENERAL') {
-            set.status = 403;
-            return { error: 'You do not have permission to view users' };
+            return status(403, { error: 'You do not have permission to view users' });
         }
         const result = await db
             .select({
@@ -31,12 +30,11 @@ export const userRoutes = new Elysia({ prefix: '/users' })
         return result;
     })
     // Get user by ID - ADMIN and SUPERADMIN can view all, GENERAL can only view themselves
-    .get('/:id', async ({ params, headers, set }) => {
+    .get('/:id', async ({ params, headers, status }) => {
         const user = await authenticateUser(headers);
         // GENERAL can only view their own profile
         if (user.role === 'GENERAL' && user.id !== params.id) {
-            set.status = 403;
-            return { error: 'You can only view your own profile' };
+            return status(403, { error: 'You can only view your own profile' });
         }
         const result = await db
             .select({
@@ -54,19 +52,17 @@ export const userRoutes = new Elysia({ prefix: '/users' })
             .where(and(eq(users.id, params.id), isNull(users.deletedAt)));
 
         if (!result[0]) {
-            set.status = 404;
-            return { error: 'User not found' };
+            return status(404, { error: 'User not found' });
         }
         return result[0];
     })
     // Create user - SUPERADMIN only
     .post(
         '/',
-        async ({ body, headers, set }) => {
+        async ({ body, headers, status }) => {
             const user = await authenticateUser(headers);
             if (user.role !== 'SUPERADMIN') {
-                set.status = 403;
-                return { error: 'Only SUPERADMIN can create users' };
+                return status(403, { error: 'Only SUPERADMIN can create users' });
             }
             const hashedPassword = await hashPassword(body.password);
             const result = await db
@@ -105,19 +101,17 @@ export const userRoutes = new Elysia({ prefix: '/users' })
     // Update user - SUPERADMIN can update all, users can update own profile (limited fields)
     .put(
         '/:id',
-        async ({ params, body, headers, set }) => {
+        async ({ params, body, headers, status }) => {
             const currentUser = await authenticateUser(headers);
             // Only SUPERADMIN can update role, isActive, and other users' profiles
             if (currentUser.role !== 'SUPERADMIN') {
                 // Non-superadmin can only update their own profile with limited fields
                 if (currentUser.id !== params.id) {
-                    set.status = 403;
-                    return { error: 'You can only update your own profile' };
+                    return status(403, { error: 'You can only update your own profile' });
                 }
                 // Remove role and isActive from body for non-superadmin
                 if (body.role !== undefined || body.isActive !== undefined) {
-                    set.status = 403;
-                    return { error: 'You cannot update role or active status' };
+                    return status(403, { error: 'You cannot update role or active status' });
                 }
             }
 
@@ -128,8 +122,7 @@ export const userRoutes = new Elysia({ prefix: '/users' })
                 .where(and(eq(users.id, params.id), isNull(users.deletedAt)));
 
             if (!existingUser[0]) {
-                set.status = 404;
-                return { error: 'User not found' };
+                return status(404, { error: 'User not found' });
             }
 
             const updateData: Partial<NewUser> = {};
@@ -172,11 +165,10 @@ export const userRoutes = new Elysia({ prefix: '/users' })
         }
     )
     // Soft delete user - SUPERADMIN only
-    .delete('/:id', async ({ params, headers, set }) => {
+    .delete('/:id', async ({ params, headers, status }) => {
         const user = await authenticateUser(headers);
         if (user.role !== 'SUPERADMIN') {
-            set.status = 403;
-            return { error: 'Only SUPERADMIN can delete users' };
+            return status(403, { error: 'Only SUPERADMIN can delete users' });
         }
 
         // Check if user exists and is not already soft-deleted
@@ -186,8 +178,7 @@ export const userRoutes = new Elysia({ prefix: '/users' })
             .where(and(eq(users.id, params.id), isNull(users.deletedAt)));
 
         if (!existingUser[0]) {
-            set.status = 404;
-            return { error: 'User not found or already deleted' };
+            return status(404, { error: 'User not found or already deleted' });
         }
 
         // Soft delete by setting deletedAt to current timestamp
@@ -207,11 +198,10 @@ export const userRoutes = new Elysia({ prefix: '/users' })
         return result[0];
     })
     // Restore soft-deleted user - SUPERADMIN only
-    .post('/:id/restore', async ({ params, headers, set }) => {
+    .post('/:id/restore', async ({ params, headers, status }) => {
         const user = await authenticateUser(headers);
         if (user.role !== 'SUPERADMIN') {
-            set.status = 403;
-            return { error: 'Only SUPERADMIN can restore users' };
+            return status(403, { error: 'Only SUPERADMIN can restore users' });
         }
 
         // Check if user exists and is soft-deleted
@@ -221,8 +211,7 @@ export const userRoutes = new Elysia({ prefix: '/users' })
             .where(eq(users.id, params.id));
 
         if (!existingUser[0]) {
-            set.status = 404;
-            return { error: 'User not found' };
+            return status(404, { error: 'User not found' });
         }
 
         // Restore by setting deletedAt to null

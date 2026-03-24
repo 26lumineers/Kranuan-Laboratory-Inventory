@@ -7,15 +7,12 @@ export const productRoutes = new Elysia({ prefix: '/products' })
     // List products - All authenticated users (they need to see products to order)
     .get('/', async ({ headers }) => {
         await authenticateUser(headers);
-        // All users can view products (needed to place orders)
         const result = await db.select().from(products);
         return result;
     })
     // Get available products for ordering (with stock > 0, but NO stock quantity shown)
-    // Used by GENERAL users to place orders
     .get('/available', async ({ headers }) => {
         const user = await authenticateUser(headers);
-        // Return products that have stock > 0, but don't include quantity
         const result = await db
             .select({
                 id: products.id,
@@ -41,11 +38,10 @@ export const productRoutes = new Elysia({ prefix: '/products' })
     // Create product - SUPERADMIN only
     .post(
         '/',
-        async ({ body, headers, set }) => {
+        async ({ body, headers, status }) => {
             const user = await authenticateUser(headers);
             if (user.role !== 'SUPERADMIN') {
-                set.status = 403;
-                return { error: 'Only SUPERADMIN can create products' };
+                return status(403, { error: 'Only SUPERADMIN can create products' });
             }
             const result = await db
                 .insert(products)
@@ -66,11 +62,10 @@ export const productRoutes = new Elysia({ prefix: '/products' })
     // Update product - SUPERADMIN only
     .put(
         '/:id',
-        async ({ params, body, headers, set }) => {
+        async ({ params, body, headers, status }) => {
             const user = await authenticateUser(headers);
             if (user.role !== 'SUPERADMIN') {
-                set.status = 403;
-                return { error: 'Only SUPERADMIN can update products' };
+                return status(403, { error: 'Only SUPERADMIN can update products' });
             }
             const result = await db
                 .update(products)
@@ -91,11 +86,10 @@ export const productRoutes = new Elysia({ prefix: '/products' })
         }
     )
     // Delete product (soft delete) - SUPERADMIN only
-    .delete('/:id', async ({ params, headers, set }) => {
+    .delete('/:id', async ({ params, headers, status }) => {
         const user = await authenticateUser(headers);
         if (user.role !== 'SUPERADMIN') {
-            set.status = 403;
-            return { error: 'Only SUPERADMIN can delete products' };
+            return status(403, { error: 'Only SUPERADMIN can delete products' });
         }
         const result = await db
             .update(products)

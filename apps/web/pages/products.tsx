@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import { IRootState } from '../store';
 import { withAuth } from '../components/Auth/withAuth';
 import { api } from '../utils/api';
+import Link from 'next/link';
 import LabLayout from '../components/Layouts/LabLayout';
 
 interface Product {
@@ -142,7 +143,13 @@ const ProductsPage = () => {
         <div className="p-4 md:p-6">
             <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-2xl font-bold md:text-3xl">Products Management</h1>
+                    <Link href="/dashboard" className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary">
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Back to Dashboard
+                    </Link>
+                    <h1 className="mt-2 text-2xl font-bold md:text-3xl">Products Management</h1>
                     <p className="mt-1 text-gray-500">Create and manage product catalog</p>
                 </div>
                 <button
