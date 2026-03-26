@@ -30,15 +30,14 @@ interface Room {
 
 // Category display names in Thai
 const CATEGORY_LABELS: Record<string, string> = {
-    'CHEMICAL_CLINIC': '1️⃣ เคมีคลินิก',
-    'IMMUNOLOGY': '2️⃣ ภูมิคุ้มกันวิทยา',
-    'HEMATOLOGY': '3️⃣ โลหิตวิทยา',
-    'MICROSCOPIC': '4️⃣ จุลทรรศนศาสตร์',
-    'BLOOD_BANK': '5️⃣ ธนาคารเลือด',
-    'MICRO_BIOLOGY': '6️⃣ จุลชีววิทยา',
-    'SUB_STOCKS': '7️⃣ คลังย่อยกลุ่มงาน',
+    'CHEMICAL_CLINIC': '🧪 เคมีคลินิก',
+    'IMMUNOLOGY': '🛡️ ภูมิคุ้มกันวิทยา',
+    'HEMATOLOGY': '🩸 โลหิตวิทยา',
+    'MICROSCOPIC': '🔬 จุลทรรศนศาสตร์',
+    'BLOOD_BANK': '🧬 ธนาคารเลือด',
+    'MICRO_BIOLOGY': '🦠 จุลชีววิทยา',
+    'SUB_STOCKS': '📦 คลังย่อยกลุ่มงาน',
 };
-
 // Category order
 const CATEGORY_ORDER = [
     'CHEMICAL_CLINIC',
@@ -53,6 +52,7 @@ const CATEGORY_ORDER = [
 const OrderPage = () => {
     const router = useRouter();
     const { user } = useSelector((state: IRootState) => state.auth);
+    const isGeneral = user?.role === 'GENERAL';
     const [products, setProducts] = useState<Product[]>([]);
     const [rooms, setRooms] = useState<Room[]>([]);
     const [selectedRoomId, setSelectedRoomId] = useState<string>('');
@@ -214,7 +214,7 @@ const OrderPage = () => {
             }, 3000);
             return () => clearTimeout(timer);
         }
-    }, [router.query.success]);
+    }, [router.query.success, router]);
 
     if (success) {
         return (
@@ -236,12 +236,14 @@ const OrderPage = () => {
         <div className="p-4 md:p-6">
             <div className="mb-6">
                 <div className="flex items-center gap-4">
-                    <Link href="/dashboard" className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary">
-                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                        </svg>
-                        Back to Dashboard
-                    </Link>
+                    {!isGeneral && (
+                        <Link href="/dashboard" className="flex items-center gap-1 text-sm text-gray-500 hover:text-primary">
+                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                            </svg>
+                            Back to Dashboard
+                        </Link>
+                    )}
                 </div>
                 <h1 className="mt-2 text-2xl font-bold md:text-3xl">Order Items</h1>
                 <p className="mt-1 text-gray-500">Select items from inventory to request</p>
@@ -351,7 +353,17 @@ const OrderPage = () => {
                 {/* Order Summary */}
                 <div className="lg:col-span-1">
                     <div className="sticky top-4 rounded-lg bg-white p-4 shadow dark:bg-gray-800">
-                        <h2 className="mb-4 text-lg font-bold">Your Order</h2>
+                        <div className="mb-4 flex items-center justify-between">
+                            <h2 className="text-lg font-bold">Your Order</h2>
+                            {orderItems.length > 0 && (
+                                <button
+                                    onClick={() => setOrderItems([])}
+                                    className="text-sm text-red-500 hover:text-red-700"
+                                >
+                                    Clear All
+                                </button>
+                            )}
+                        </div>
 
                         {/* Room Selector - user's room is pre-selected but can choose others */}
                         <div className="mb-4">
@@ -375,9 +387,11 @@ const OrderPage = () => {
                             </select>
                         </div>
 
-                        {orderItems.length === 0 ? (
+                        {orderItems.length === 0 && (
                             <p className="text-gray-500">No items in your order yet</p>
-                        ) : (
+                        )}
+
+                        {orderItems.length > 0 && (
                             <div className="space-y-3">
                                 {orderItems.map((item) => (
                                     <div key={item.productId} className="rounded-lg bg-gray-50 p-3 dark:bg-gray-700">

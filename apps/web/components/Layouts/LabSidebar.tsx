@@ -3,7 +3,22 @@ import { IRootState } from '../../store';
 import { logout } from '../../store/authSlice';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { api } from '../../utils/api';
+
+interface Transaction {
+    id: string;
+    note: string | null;
+    createdAt: string;
+    user: {
+        id: string;
+        fullName: string;
+    };
+    room: {
+        id: string;
+        name: string;
+    };
+}
 
 const LabSidebar = () => {
     const router = useRouter();
@@ -11,10 +26,37 @@ const LabSidebar = () => {
     const { user, isAuthenticated } = useSelector((state: IRootState) => state.auth);
     const themeConfig = useSelector((state: IRootState) => state.themeConfig);
     const [collapsed, setCollapsed] = useState(false);
+    const [showNotifications, setShowNotifications] = useState(false);
+    const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
+    const notificationRef = useRef<HTMLDivElement>(null);
 
     const isSuperAdmin = user?.role === 'SUPERADMIN';
     const isAdmin = user?.role === 'ADMIN' || isSuperAdmin;
     const isGeneral = user?.role === 'GENERAL';
+
+    // Fetch recent transactions for notifications
+    useEffect(() => {
+        if (isAdmin) {
+            const fetchTransactions = async () => {
+                const response = await api.get<Transaction[]>('/transactions');
+                if (response.data) {
+                    setRecentTransactions(response.data.slice(0, 3));
+                }
+            };
+            fetchTransactions();
+        }
+    }, [isAdmin]);
+
+    // Close notification dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+                setShowNotifications(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     // GENERAL users don't see sidebar
     if (isGeneral) {
@@ -111,14 +153,67 @@ const LabSidebar = () => {
                         <span className="truncate text-xl font-bold text-primary">Lab Inventory</span>
                     </Link>
                 )}
-                <button
-                    onClick={() => setCollapsed(!collapsed)}
-                    className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-                >
-                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                </button>
+                <div className="flex items-center gap-2">
+                    {/* Notification Bell - Only for Admin/SuperAdmin */}
+                    {isAdmin && !collapsed && (
+                        <div className="relative" ref={notificationRef}>
+                            <button
+                                type="button"
+                                onClick={() => setShowNotifications(!showNotifications)}
+                                className="relative block rounded-full bg-white-light/40 p-2 hover:bg-white-light/90 hover:text-primary dark:bg-dark/40 dark:hover:bg-dark/60"
+                            >
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M19.0001 9.7041V9C19.0001 5.13401 15.8661 2 12.0001 2C8.13407 2 5.00006 5.13401 5.00006 9V9.7041C5.00006 10.5491 4.74995 11.3752 4.28123 12.0783L3.13263 13.8012C2.08349 15.3749 2.88442 17.5139 4.70913 18.0116C9.48258 19.3134 14.5175 19.3134 19.291 18.0116C21.1157 17.5139 21.9166 15.3749 20.8675 13.8012L19.7189 12.0783C19.2502 11.3752 19.0001 10.5491 19.0001 9.7041Z" stroke="currentColor" strokeWidth="1.5" />
+                                    <path d="M7.5 19C8.15503 20.7478 9.92246 22 12 22C14.0775 22 15.845 20.7478 16.5 19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                                    <path d="M12 6V10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                                </svg>
+                                {recentTransactions.length > 0 && (
+                                    <span className="absolute top-0 flex h-3 w-3 ltr:right-0 rtl:left-0">
+                                        <span className="absolute -top-[3px] inline-flex h-full w-full animate-ping rounded-full bg-success/50 opacity-75 ltr:-left-[3px] rtl:-right-[3px]"></span>
+                                        <span className="relative inline-flex h-[6px] w-[6px] rounded-full bg-success"></span>
+                                    </span>
+                                )}
+                            </button>
+
+                            {/* Notification Dropdown */}
+                            {showNotifications && (
+                                <div className="absolute right-0 top-full z-50 mt-2 w-72 rounded-lg border border-gray-200 bg-white p-4 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                                    <h4 className="mb-3 font-bold">Recent Transactions</h4>
+                                    {recentTransactions.length === 0 ? (
+                                        <p className="text-sm text-gray-500">No recent transactions</p>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {recentTransactions.map((tx) => (
+                                                <div key={tx.id} className="border-b border-gray-100 pb-2 last:border-0 dark:border-gray-700">
+                                                    <p className="text-sm font-medium">{tx.user?.fullName || 'Unknown'}</p>
+                                                    <p className="text-xs text-gray-500">{tx.room?.name || 'Unknown Room'}</p>
+                                                    <p className="text-xs text-gray-400">
+                                                        {new Date(tx.createdAt).toLocaleDateString()}
+                                                    </p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    <Link
+                                        href="/transactions"
+                                        className="mt-3 block w-full rounded-lg bg-primary py-2 text-center text-sm text-white hover:opacity-90"
+                                        onClick={() => setShowNotifications(false)}
+                                    >
+                                        Read All Notifications
+                                    </Link>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    <button
+                        onClick={() => setCollapsed(!collapsed)}
+                        className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                    >
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
+                </div>
             </div>
 
             {/* Navigation */}

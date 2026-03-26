@@ -1,608 +1,525 @@
+import { useEffect, useState, useMemo, useRef } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
-import { useDispatch } from 'react-redux';
+import { IRootState } from '../../../store';
 import { setPageTitle } from '../../../store/themeConfigSlice';
+import { api } from '../../../utils/api';
+import { withAuth } from '../../../components/Auth/withAuth';
 
-const Edit = () => {
+interface Product {
+    id: string;
+    name: string;
+    unit: string;
+    category: string;
+    description: string | null;
+}
+
+interface InvoiceItem {
+    productId: string;
+    productName: string;
+    unit: string;
+    quantity: number;
+}
+
+interface Invoice {
+    id: string;
+    invoiceNumber: string;
+    description: string | null;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUCCESS';
+    createdBy: string;
+    note: string | null;
+    createdAt: string;
+    items: {
+        id: string;
+        productId: string;
+        productName: string | null;
+        productUnit: string | null;
+        quantity: number;
+    }[];
+    creator?: {
+        id: string;
+        fullName: string;
+        username: string;
+    } | null;
+}
+
+// Category display names in Thai
+const CATEGORY_LABELS: Record<string, string> = {
+    'CHEMICAL_CLINIC': '🧪 เคมีคลินิก',
+    'IMMUNOLOGY': '🛡️ ภูมิคุ้มกันวิทยา',
+    'HEMATOLOGY': '🩸 โลหิตวิทยา',
+    'MICROSCOPIC': '🔬 จุลทรรศนศาสตร์',
+    'BLOOD_BANK': '🧬 ธนาคารเลือด',
+    'MICRO_BIOLOGY': '🦠 จุลชีววิทยา',
+    'SUB_STOCKS': '📦 คลังย่อยกลุ่มงาน',
+};
+
+// Category order
+const CATEGORY_ORDER = [
+    'CHEMICAL_CLINIC',
+    'IMMUNOLOGY',
+    'HEMATOLOGY',
+    'MICROSCOPIC',
+    'BLOOD_BANK',
+    'MICRO_BIOLOGY',
+    'SUB_STOCKS',
+];
+
+const InvoiceEdit = () => {
     const dispatch = useDispatch();
+    const router = useRouter();
+    const { id } = router.query;
+    const { user } = useSelector((state: IRootState) => state.auth);
+
+    const [products, setProducts] = useState<Product[]>([]);
+    const [invoice, setInvoice] = useState<Invoice | null>(null);
+    const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
+    const [description, setDescription] = useState('');
+    const [note, setNote] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(CATEGORY_ORDER));
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const hasFetched = useRef(false);
+
     useEffect(() => {
         dispatch(setPageTitle('Invoice Edit'));
-    });
-    const currencyList = ['USD - US Dollar', 'GBP - British Pound', 'IDR - Indonesian Rupiah', 'INR - Indian Rupee', 'BRL - Brazilian Real', 'EUR - Germany (Euro)', 'TRY - Turkish Lira'];
-    const [tax, setTax] = useState<any>(0);
-    const [discount, setDiscount] = useState<any>(0);
-    const [shippingCharge, setShippingCharge] = useState<any>(0);
-    const [paymentMethod, setPaymentMethod] = useState<any>('bank');
+    }, [dispatch]);
 
-    const [items, setItems] = useState<any>([
-        {
-            id: 1,
-            title: 'Calendar App Customization',
-            description: 'Make Calendar App Dynamic',
-            quantity: 2,
-            amount: 120,
-            isTax: false,
-        },
-        {
-            id: 2,
-            title: 'Chat App Customization',
-            description: 'Customized Chat Application to resolve some Bug Fixes',
-            quantity: 1,
-            amount: 25,
-            isTax: false,
-        },
-    ]);
-    const [selectedCurrency, setSelectedCurrency] = useState('USD - US Dollar');
-    const [params, setParams] = useState<any>({
-        title: 'Tailwind',
-        invoiceNo: '#0001',
-        to: {
-            name: 'Jesse Cory',
-            email: 'redq@company.com',
-            address: '405 Mulberry Rd. Mc Grady, NC, 28649',
-            phone: '(128) 666 070',
-        },
-        invoiceDate: '',
-        dueDate: '',
-        bankInfo: {
-            no: '1234567890',
-            name: 'Bank of America',
-            swiftCode: 'VS70134',
-            country: 'United States',
-            ibanNo: 'K456G',
-        },
-        notes: 'It was a pleasure working with you and your team. We hope you will keep us in mind for future freelance projects. Thank You!',
-    });
+    // Fetch invoice and products
     useEffect(() => {
-        let dt: Date = new Date();
-        const month = dt.getMonth() + 1 < 10 ? '0' + (dt.getMonth() + 1) : dt.getMonth() + 1;
-        let date = dt.getDate() < 10 ? '0' + dt.getDate() : dt.getDate();
-        setParams({
-            ...params,
-            invoiceDate: dt.getFullYear() + '-' + month + '-' + date,
-            dueDate: dt.getFullYear() + '-' + month + '-' + date,
+        if (!id || hasFetched.current) return;
+        hasFetched.current = true;
+
+        const fetchData = async () => {
+            setIsLoading(true);
+            setError(null);
+
+            // Fetch invoice
+            const invoiceResponse = await api.get<Invoice>(`/invoices/${id}`);
+            if (invoiceResponse.error) {
+                setError(invoiceResponse.error);
+                setIsLoading(false);
+                return;
+            }
+
+            if (invoiceResponse.data) {
+                const inv = invoiceResponse.data;
+
+                // Check if invoice can be edited
+                if (inv.status === 'SUCCESS') {
+                    setError('Cannot edit invoice with SUCCESS status');
+                    setIsLoading(false);
+                    return;
+                }
+
+                setInvoice(inv);
+                setDescription(inv.description || '');
+                setNote(inv.note || '');
+
+                // Set invoice items
+                setInvoiceItems(inv.items.map(item => ({
+                    productId: item.productId,
+                    productName: item.productName || 'Unknown',
+                    unit: item.productUnit || '',
+                    quantity: item.quantity,
+                })));
+            }
+
+            // Fetch products
+            const productsResponse = await api.get<Product[]>('/products/available');
+            if (productsResponse.data) {
+                setProducts(productsResponse.data);
+            }
+
+            setIsLoading(false);
+        };
+
+        fetchData();
+    }, [id]);
+
+    // Group products by category
+    const groupedProducts = useMemo(() => {
+        const filtered = searchTerm
+            ? products.filter(item =>
+                item.name.toLowerCase().includes(searchTerm.toLowerCase())
+            )
+            : products;
+
+        const grouped: Record<string, Product[]> = {};
+        filtered.forEach(product => {
+            if (!grouped[product.category]) {
+                grouped[product.category] = [];
+            }
+            grouped[product.category].push(product);
         });
-    }, []);
 
-    const addItem = () => {
-        let maxId = 0;
-        maxId = items?.length ? items.reduce((max: number, character: any) => (character.id > max ? character.id : max), items[0].id) : 0;
+        return grouped;
+    }, [products, searchTerm]);
 
-        setItems([
-            ...items,
-            {
-                id: maxId + 1,
-                title: '',
-                description: '',
-                rate: 0,
-                quantity: 0,
-                amount: 0,
-            },
-        ]);
+    const toggleCategory = (category: string) => {
+        setExpandedCategories(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(category)) {
+                newSet.delete(category);
+            } else {
+                newSet.add(category);
+            }
+            return newSet;
+        });
     };
 
-    const removeItem = (item: any = null) => {
-        setItems(items.filter((d: any) => d.id !== item.id));
-    };
-
-    const changeQuantityPrice = (type: string, value: string, id: number) => {
-        // const list = items;
-        const item = items.find((d: any) => d.id === id);
-        if (type === 'quantity') {
-            item.quantity = Number(value);
+    const addToInvoice = (item: Product) => {
+        const existing = invoiceItems.find(i => i.productId === item.id);
+        if (!existing) {
+            setInvoiceItems([...invoiceItems, {
+                productId: item.id,
+                productName: item.name,
+                unit: item.unit,
+                quantity: 1,
+            }]);
         }
-        if (type === 'price') {
-            item.amount = Number(value);
-        }
-        setItems([...items]);
     };
 
-    return (
-        <div className="flex flex-col gap-2.5 xl:flex-row">
-            <div className="panel flex-1 px-0 py-6 ltr:xl:mr-6 rtl:xl:ml-6">
-                <div className="flex flex-wrap justify-between px-4">
-                    <div className="mb-6 w-full lg:w-1/2">
-                        <div className="flex shrink-0 items-center text-black dark:text-white">
-                            <img src="/assets/images/logo.svg" alt="img" className="w-14" />
-                        </div>
-                        <div className="mt-6 space-y-1 text-gray-500 dark:text-gray-400">
-                            <div>13 Tetrick Road, Cypress Gardens, Florida, 33884, US</div>
-                            <div>vristo@gmail.com</div>
-                            <div>+1 (070) 123-4567</div>
-                        </div>
-                    </div>
-                    <div className="w-full lg:w-1/2 lg:max-w-fit">
-                        <div className="flex items-center">
-                            <label htmlFor="number" className="mb-0 flex-1 ltr:mr-2 rtl:ml-2">
-                                Invoice Number
-                            </label>
-                            <input id="number" type="text" name="inv-num" className="form-input w-2/3 lg:w-[250px]" placeholder="#8801" defaultValue={params.invoiceNo} />
-                        </div>
-                        <div className="mt-4 flex items-center">
-                            <label htmlFor="invoiceLabel" className="mb-0 flex-1 ltr:mr-2 rtl:ml-2">
-                                Invoice Label
-                            </label>
-                            <input id="invoiceLabel" type="text" name="inv-label" className="form-input w-2/3 lg:w-[250px]" placeholder="Enter Invoice Label" defaultValue={params.title} />
-                        </div>
-                        <div className="mt-4 flex items-center">
-                            <label htmlFor="startDate" className="mb-0 flex-1 ltr:mr-2 rtl:ml-2">
-                                Invoice Date
-                            </label>
-                            <input id="startDate" type="date" name="inv-date" className="form-input w-2/3 lg:w-[250px]" defaultValue={params.invoiceDate} />
-                        </div>
-                        <div className="mt-4 flex items-center">
-                            <label htmlFor="dueDate" className="mb-0 flex-1 ltr:mr-2 rtl:ml-2">
-                                Due Date
-                            </label>
-                            <input id="dueDate" type="date" name="due-date" className="form-input w-2/3 lg:w-[250px]" defaultValue={params.dueDate} />
-                        </div>
-                    </div>
-                </div>
-                <hr className="my-6 border-white-light dark:border-[#1b2e4b]" />
-                <div className="mt-8 px-4">
-                    <div className="flex flex-col justify-between lg:flex-row">
-                        <div className="mb-6 w-full lg:w-1/2 ltr:lg:mr-6 rtl:lg:ml-6">
-                            <div className="text-lg">Bill To :-</div>
-                            <div className="mt-4 flex items-center">
-                                <label htmlFor="reciever-name" className="mb-0 w-1/3 ltr:mr-2 rtl:ml-2">
-                                    Name
-                                </label>
-                                <input id="reciever-name" type="text" name="reciever-name" className="form-input flex-1" defaultValue={params.to.name} placeholder="Enter Name" />
-                            </div>
-                            <div className="mt-4 flex items-center">
-                                <label htmlFor="reciever-email" className="mb-0 w-1/3 ltr:mr-2 rtl:ml-2">
-                                    Email
-                                </label>
-                                <input id="reciever-email" type="email" name="reciever-email" className="form-input flex-1" defaultValue={params.to.email} placeholder="Enter Email" />
-                            </div>
-                            <div className="mt-4 flex items-center">
-                                <label htmlFor="reciever-address" className="mb-0 w-1/3 ltr:mr-2 rtl:ml-2">
-                                    Address
-                                </label>
-                                <input id="reciever-address" type="text" name="reciever-address" className="form-input flex-1" defaultValue={params.to.address} placeholder="Enter Address" />
-                            </div>
-                            <div className="mt-4 flex items-center">
-                                <label htmlFor="reciever-number" className="mb-0 w-1/3 ltr:mr-2 rtl:ml-2">
-                                    Phone Number
-                                </label>
-                                <input id="reciever-number" type="text" name="reciever-number" className="form-input flex-1" defaultValue={params.to.phone} placeholder="Enter Phone number" />
-                            </div>
-                        </div>
-                        <div className="w-full lg:w-1/2">
-                            <div className="text-lg">Payment Details:</div>
-                            <div className="mt-4 flex items-center">
-                                <label htmlFor="acno" className="mb-0 w-1/3 ltr:mr-2 rtl:ml-2">
-                                    Account Number
-                                </label>
-                                <input id="acno" type="text" name="acno" className="form-input flex-1" defaultValue={params.bankInfo.no} placeholder="Enter Account Number" />
-                            </div>
-                            <div className="mt-4 flex items-center">
-                                <label htmlFor="bank-name" className="mb-0 w-1/3 ltr:mr-2 rtl:ml-2">
-                                    Bank Name
-                                </label>
-                                <input id="bank-name" type="text" name="bank-name" className="form-input flex-1" defaultValue={params.bankInfo.name} placeholder="Enter Bank Name" />
-                            </div>
-                            <div className="mt-4 flex items-center">
-                                <label htmlFor="swift-code" className="mb-0 w-1/3 ltr:mr-2 rtl:ml-2">
-                                    SWIFT Number
-                                </label>
-                                <input id="swift-code" type="text" name="swift-code" className="form-input flex-1" defaultValue={params.bankInfo.swiftCode} placeholder="Enter SWIFT Number" />
-                            </div>
-                            <div className="mt-4 flex items-center">
-                                <label htmlFor="iban-code" className="mb-0 w-1/3 ltr:mr-2 rtl:ml-2">
-                                    IBAN Number
-                                </label>
-                                <input id="iban-code" type="text" name="iban-code" className="form-input flex-1" defaultValue={params.bankInfo.ibanNo} placeholder="Enter IBAN Number" />
-                            </div>
-                            <div className="mt-4 flex items-center">
-                                <label htmlFor="country" className="mb-0 w-1/3 ltr:mr-2 rtl:ml-2">
-                                    Country
-                                </label>
-                                <select id="country" name="country" className="form-select flex-1" defaultValue={params.bankInfo.country}>
-                                    <option value="">Choose Country</option>
-                                    <option value="United States">United States</option>
-                                    <option value="United Kingdom">United Kingdom</option>
-                                    <option value="Canada">Canada</option>
-                                    <option value="Australia">Australia</option>
-                                    <option value="Germany">Germany</option>
-                                    <option value="Sweden">Sweden</option>
-                                    <option value="Denmark">Denmark</option>
-                                    <option value="Norway">Norway</option>
-                                    <option value="New-Zealand">New Zealand</option>
-                                    <option value="Afghanistan">Afghanistan</option>
-                                    <option value="Albania">Albania</option>
-                                    <option value="Algeria">Algeria</option>
-                                    <option value="American-Samoa">Andorra</option>
-                                    <option value="Angola">Angola</option>
-                                    <option value="Antigua Barbuda">Antigua &amp; Barbuda</option>
-                                    <option value="Argentina">Argentina</option>
-                                    <option value="Armenia">Armenia</option>
-                                    <option value="Aruba">Aruba</option>
-                                    <option value="Austria">Austria</option>
-                                    <option value="Azerbaijan">Azerbaijan</option>
-                                    <option value="Bahamas">Bahamas</option>
-                                    <option value="Bahrain">Bahrain</option>
-                                    <option value="Bangladesh">Bangladesh</option>
-                                    <option value="Barbados">Barbados</option>
-                                    <option value="Belarus">Belarus</option>
-                                    <option value="Belgium">Belgium</option>
-                                    <option value="Belize">Belize</option>
-                                    <option value="Benin">Benin</option>
-                                    <option value="Bermuda">Bermuda</option>
-                                    <option value="Bhutan">Bhutan</option>
-                                    <option value="Bolivia">Bolivia</option>
-                                    <option value="Bosnia">Bosnia &amp; Herzegovina</option>
-                                    <option value="Botswana">Botswana</option>
-                                    <option value="Brazil">Brazil</option>
-                                    <option value="British">British Virgin Islands</option>
-                                    <option value="Brunei">Brunei</option>
-                                    <option value="Bulgaria">Bulgaria</option>
-                                    <option value="Burkina">Burkina Faso</option>
-                                    <option value="Burundi">Burundi</option>
-                                    <option value="Cambodia">Cambodia</option>
-                                    <option value="Cameroon">Cameroon</option>
-                                    <option value="Cape">Cape Verde</option>
-                                    <option value="Cayman">Cayman Islands</option>
-                                    <option value="Central-African">Central African Republic</option>
-                                    <option value="Chad">Chad</option>
-                                    <option value="Chile">Chile</option>
-                                    <option value="China">China</option>
-                                    <option value="Colombia">Colombia</option>
-                                    <option value="Comoros">Comoros</option>
-                                    <option value="Costa-Rica">Costa Rica</option>
-                                    <option value="Croatia">Croatia</option>
-                                    <option value="Cuba">Cuba</option>
-                                    <option value="Cyprus">Cyprus</option>
-                                    <option value="Czechia">Czechia</option>
-                                    <option value="Côte">{`Côte d'Ivoire`}</option>
-                                    <option value="Djibouti">Djibouti</option>
-                                    <option value="Dominica">Dominica</option>
-                                    <option value="Dominican">Dominican Republic</option>
-                                    <option value="Ecuador">Ecuador</option>
-                                    <option value="Egypt">Egypt</option>
-                                    <option value="El-Salvador">El Salvador</option>
-                                    <option value="Equatorial-Guinea">Equatorial Guinea</option>
-                                    <option value="Eritrea">Eritrea</option>
-                                    <option value="Estonia">Estonia</option>
-                                    <option value="Ethiopia">Ethiopia</option>
-                                    <option value="Fiji">Fiji</option>
-                                    <option value="Finland">Finland</option>
-                                    <option value="France">France</option>
-                                    <option value="Gabon">Gabon</option>
-                                    <option value="Georgia">Georgia</option>
-                                    <option value="Ghana">Ghana</option>
-                                    <option value="Greece">Greece</option>
-                                    <option value="Grenada">Grenada</option>
-                                    <option value="Guatemala">Guatemala</option>
-                                    <option value="Guernsey">Guernsey</option>
-                                    <option value="Guinea">Guinea</option>
-                                    <option value="Guinea-Bissau">Guinea-Bissau</option>
-                                    <option value="Guyana">Guyana</option>
-                                    <option value="Haiti">Haiti</option>
-                                    <option value="Honduras">Honduras</option>
-                                    <option value="Hong-Kong">Hong Kong SAR China</option>
-                                    <option value="Hungary">Hungary</option>
-                                    <option value="Iceland">Iceland</option>
-                                    <option value="India">India</option>
-                                    <option value="Indonesia">Indonesia</option>
-                                    <option value="Iran">Iran</option>
-                                    <option value="Iraq">Iraq</option>
-                                    <option value="Ireland">Ireland</option>
-                                    <option value="Israel">Israel</option>
-                                    <option value="Italy">Italy</option>
-                                    <option value="Jamaica">Jamaica</option>
-                                    <option value="Japan">Japan</option>
-                                    <option value="Jordan">Jordan</option>
-                                    <option value="Kazakhstan">Kazakhstan</option>
-                                    <option value="Kenya">Kenya</option>
-                                    <option value="Kuwait">Kuwait</option>
-                                    <option value="Kyrgyzstan">Kyrgyzstan</option>
-                                    <option value="Laos">Laos</option>
-                                    <option value="Latvia">Latvia</option>
-                                    <option value="Lebanon">Lebanon</option>
-                                    <option value="Lesotho">Lesotho</option>
-                                    <option value="Liberia">Liberia</option>
-                                    <option value="Libya">Libya</option>
-                                    <option value="Liechtenstein">Liechtenstein</option>
-                                    <option value="Lithuania">Lithuania</option>
-                                    <option value="Luxembourg">Luxembourg</option>
-                                    <option value="Macedonia">Macedonia</option>
-                                    <option value="Madagascar">Madagascar</option>
-                                    <option value="Malawi">Malawi</option>
-                                    <option value="Malaysia">Malaysia</option>
-                                    <option value="Maldives">Maldives</option>
-                                    <option value="Mali">Mali</option>
-                                    <option value="Malta">Malta</option>
-                                    <option value="Mauritania">Mauritania</option>
-                                    <option value="Mauritius">Mauritius</option>
-                                    <option value="Mexico">Mexico</option>
-                                    <option value="Moldova">Moldova</option>
-                                    <option value="Monaco">Monaco</option>
-                                    <option value="Mongolia">Mongolia</option>
-                                    <option value="Montenegro">Montenegro</option>
-                                    <option value="Morocco">Morocco</option>
-                                    <option value="Mozambique">Mozambique</option>
-                                    <option value="Myanmar">Myanmar (Burma)</option>
-                                    <option value="Namibia">Namibia</option>
-                                    <option value="Nepal">Nepal</option>
-                                    <option value="Netherlands">Netherlands</option>
-                                    <option value="Nicaragua">Nicaragua</option>
-                                    <option value="Niger">Niger</option>
-                                    <option value="Nigeria">Nigeria</option>
-                                    <option value="North-Korea">North Korea</option>
-                                    <option value="Oman">Oman</option>
-                                    <option value="Pakistan">Pakistan</option>
-                                    <option value="Palau">Palau</option>
-                                    <option value="Palestinian">Palestinian Territories</option>
-                                    <option value="Panama">Panama</option>
-                                    <option value="Papua">Papua New Guinea</option>
-                                    <option value="Paraguay">Paraguay</option>
-                                    <option value="Peru">Peru</option>
-                                    <option value="Philippines">Philippines</option>
-                                    <option value="Poland">Poland</option>
-                                    <option value="Portugal">Portugal</option>
-                                    <option value="Puerto">Puerto Rico</option>
-                                    <option value="Qatar">Qatar</option>
-                                    <option value="Romania">Romania</option>
-                                    <option value="Russia">Russia</option>
-                                    <option value="Rwanda">Rwanda</option>
-                                    <option value="Réunion">Réunion</option>
-                                    <option value="Samoa">Samoa</option>
-                                    <option value="San-Marino">San Marino</option>
-                                    <option value="Saudi-Arabia">Saudi Arabia</option>
-                                    <option value="Senegal">Senegal</option>
-                                    <option value="Serbia">Serbia</option>
-                                    <option value="Seychelles">Seychelles</option>
-                                    <option value="Sierra-Leone">Sierra Leone</option>
-                                    <option value="Singapore">Singapore</option>
-                                    <option value="Slovakia">Slovakia</option>
-                                    <option value="Slovenia">Slovenia</option>
-                                    <option value="Solomon-Islands">Solomon Islands</option>
-                                    <option value="Somalia">Somalia</option>
-                                    <option value="South-Africa">South Africa</option>
-                                    <option value="South-Korea">South Korea</option>
-                                    <option value="Spain">Spain</option>
-                                    <option value="Sri-Lanka">Sri Lanka</option>
-                                    <option value="Sudan">Sudan</option>
-                                    <option value="Suriname">Suriname</option>
-                                    <option value="Swaziland">Swaziland</option>
-                                    <option value="Switzerland">Switzerland</option>
-                                    <option value="Syria">Syria</option>
-                                    <option value="Sao-Tome-and-Principe">São Tomé &amp; Príncipe</option>
-                                    <option value="Tajikistan">Tajikistan</option>
-                                    <option value="Tanzania">Tanzania</option>
-                                    <option value="Thailand">Thailand</option>
-                                    <option value="Timor-Leste">Timor-Leste</option>
-                                    <option value="Togo">Togo</option>
-                                    <option value="Tonga">Tonga</option>
-                                    <option value="Trinidad-and-Tobago">Trinidad &amp; Tobago</option>
-                                    <option value="Tunisia">Tunisia</option>
-                                    <option value="Turkey">Turkey</option>
-                                    <option value="Turkmenistan">Turkmenistan</option>
-                                    <option value="Uganda">Uganda</option>
-                                    <option value="Ukraine">Ukraine</option>
-                                    <option value="UAE">United Arab Emirates</option>
-                                    <option value="Uruguay">Uruguay</option>
-                                    <option value="Uzbekistan">Uzbekistan</option>
-                                    <option value="Vanuatu">Vanuatu</option>
-                                    <option value="Venezuela">Venezuela</option>
-                                    <option value="Vietnam">Vietnam</option>
-                                    <option value="Yemen">Yemen</option>
-                                    <option value="Zambia">Zambia</option>
-                                    <option value="Zimbabwe">Zimbabwe</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div className="mt-8">
-                    <div className="table-responsive">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Item</th>
-                                    <th className="w-1">Quantity</th>
-                                    <th className="w-1">Price</th>
-                                    <th>Total</th>
-                                    <th className="w-1"></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {items.length <= 0 && (
-                                    <tr>
-                                        <td colSpan={5} className="!text-center font-semibold">
-                                            No Item Available
-                                        </td>
-                                    </tr>
-                                )}
-                                {items.map((item: any, index: any) => {
-                                    return (
-                                        <tr className="align-top" key={item.id}>
-                                            <td>
-                                                <input type="text" className="form-input min-w-[200px]" placeholder="Enter Item Name" defaultValue={item.title} />
-                                                <textarea className="form-textarea mt-4" placeholder="Enter Description" defaultValue={item.description}></textarea>
-                                            </td>
-                                            <td>
-                                                <input
-                                                    type="number"
-                                                    className="form-input w-32"
-                                                    placeholder="Quantity"
-                                                    defaultValue={item.quantity}
-                                                    min={0}
-                                                    onChange={(e) => changeQuantityPrice('quantity', e.target.value, item.id)}
-                                                />
-                                            </td>
-                                            <td>
-                                                <input
-                                                    type="number"
-                                                    className="form-input w-32"
-                                                    placeholder="Price"
-                                                    defaultValue={item.amount}
-                                                    min={0}
-                                                    onChange={(e) => changeQuantityPrice('price', e.target.value, item.id)}
-                                                />
-                                            </td>
-                                            <td>${item.quantity * item.amount}</td>
-                                            <td>
-                                                <button type="button" onClick={() => removeItem(item)}>
-                                                    <svg
-                                                        xmlns="http://www.w3.org/2000/svg"
-                                                        width="20"
-                                                        height="20"
-                                                        viewBox="0 0 24 24"
-                                                        fill="none"
-                                                        stroke="currentColor"
-                                                        strokeWidth="1.5"
-                                                        strokeLinecap="round"
-                                                        strokeLinejoin="round"
-                                                    >
-                                                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                                                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                                                    </svg>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                    <div className="mt-6 flex flex-col justify-between px-4 sm:flex-row">
-                        <div className="mb-6 sm:mb-0">
-                            <button type="button" className="btn btn-primary" onClick={() => addItem()}>
-                                Add Item
-                            </button>
-                        </div>
-                        <div className="sm:w-2/5">
-                            <div className="flex items-center justify-between">
-                                <div>Subtotal</div>
-                                <div>$265.00</div>
-                            </div>
-                            <div className="mt-4 flex items-center justify-between">
-                                <div>Tax(%)</div>
-                                <div>0%</div>
-                            </div>
-                            <div className="mt-4 flex items-center justify-between">
-                                <div>Shipping Rate($)</div>
-                                <div>$0.00</div>
-                            </div>
-                            <div className="mt-4 flex items-center justify-between">
-                                <div>Discount(%)</div>
-                                <div>0%</div>
-                            </div>
-                            <div className="mt-4 flex items-center justify-between font-semibold">
-                                <div>Total</div>
-                                <div>$265.00</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div className="mt-8 px-4">
-                    <label htmlFor="notes">Notes</label>
-                    <textarea id="notes" name="notes" className="form-textarea min-h-[130px]" placeholder="Notes...." defaultValue={params.notes}></textarea>
+    const updateQuantity = (productId: string, delta: number) => {
+        setInvoiceItems(invoiceItems.map(item => {
+            if (item.productId === productId) {
+                const newQuantity = Math.max(1, item.quantity + delta);
+                return { ...item, quantity: newQuantity };
+            }
+            return item;
+        }));
+    };
+
+    const setQuantity = (productId: string, value: string) => {
+        const numValue = parseInt(value, 10);
+        if (isNaN(numValue) || numValue < 1) return;
+
+        setInvoiceItems(invoiceItems.map(item => {
+            if (item.productId === productId) {
+                return { ...item, quantity: numValue };
+            }
+            return item;
+        }));
+    };
+
+    const removeFromInvoice = (productId: string) => {
+        setInvoiceItems(invoiceItems.filter(item => item.productId !== productId));
+    };
+
+    const handleSubmit = async () => {
+        if (!invoice) return;
+
+        if (invoiceItems.length === 0) {
+            setError('Please add at least one item to your invoice');
+            return;
+        }
+
+        setIsSubmitting(true);
+        setError(null);
+
+        const response = await api.put(`/invoices/${invoice.id}`, {
+            description: description || undefined,
+            note: note || undefined,
+            items: invoiceItems.map(item => ({
+                productId: item.productId,
+                quantity: item.quantity,
+            })),
+        });
+
+        setIsSubmitting(false);
+
+        if (response.error) {
+            setError(response.error);
+        } else {
+            router.push('/apps/invoice/list');
+        }
+    };
+
+    // Status badge colors
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'PENDING': return 'warning';
+            case 'APPROVED': return 'info';
+            case 'REJECTED': return 'danger';
+            case 'SUCCESS': return 'success';
+            default: return 'secondary';
+        }
+    };
+
+    if (isLoading) {
+        return (
+            <div className="flex min-h-screen items-center justify-center">
+                <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+            </div>
+        );
+    }
+
+    if (error && !invoice) {
+        return (
+            <div className="flex min-h-screen items-center justify-center">
+                <div className="text-center">
+                    <div className="mb-4 text-6xl text-gray-300">!</div>
+                    <h2 className="text-xl font-bold text-gray-600">Invoice not found</h2>
+                    <p className="mt-2 text-gray-500">{error}</p>
+                    <Link href="/apps/invoice/list" className="btn btn-primary mt-4">
+                        Back to Invoice List
+                    </Link>
                 </div>
             </div>
-            <div className="mt-6 w-full xl:mt-0 xl:w-96">
-                <div className="panel mb-5">
-                    <label htmlFor="currency">Currency</label>
-                    <select id="currency" name="currency" className="form-select" value={selectedCurrency} onChange={(e) => setSelectedCurrency(e.target.value)}>
-                        {currencyList.map((currency, i) => (
-                            <option value={currency} key={i}>
-                                {currency}
-                            </option>
-                        ))}
-                    </select>
-                    <div className="mt-4">
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            <div>
-                                <label htmlFor="tax">Tax(%) </label>
-                                <input id="tax" type="number" name="tax" className="form-input" placeholder="Tax" value={tax} onChange={(e) => setTax(e.target.value)} />
-                            </div>
-                            <div>
-                                <label htmlFor="discount">Discount(%) </label>
-                                <input id="discount" type="number" name="discount" className="form-input" placeholder="Discount" value={discount} onChange={(e) => setDiscount(e.target.value)} />
-                            </div>
+        );
+    }
+
+    // GENERAL users cannot access this page
+    if (user?.role === 'GENERAL') {
+        return (
+            <div className="flex min-h-screen items-center justify-center">
+                <div className="text-center">
+                    <div className="mb-4 text-6xl text-gray-300">🔒</div>
+                    <h2 className="text-xl font-bold text-gray-600">Access Denied</h2>
+                    <p className="mt-2 text-gray-500">GENERAL users cannot access this page.</p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="p-4 md:p-6">
+            <div className="mb-6">
+                <Link href="/apps/invoice/list" className="mb-2 flex items-center gap-1 text-sm text-gray-500 hover:text-primary">
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back to Invoice List
+                </Link>
+                <div className="flex items-center gap-4">
+                    <h1 className="text-2xl font-bold md:text-3xl">Edit Invoice</h1>
+                    {invoice && (
+                        <span className={`badge badge-outline-${getStatusColor(invoice.status)}`}>
+                            {invoice.status}
+                        </span>
+                    )}
+                </div>
+                <p className="mt-1 text-gray-500">
+                    {invoice?.invoiceNumber} - Created by {invoice?.creator?.fullName || 'Unknown'}
+                </p>
+            </div>
+
+            {error && (
+                <div className="mb-4 rounded-lg bg-red-100 p-4 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                    {error}
+                </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                {/* Available Products */}
+                <div className="lg:col-span-2">
+                    <div className="rounded-lg bg-white p-4 shadow dark:bg-gray-800">
+                        <div className="mb-4">
+                            <input
+                                type="text"
+                                placeholder="Search products..."
+                                className="form-input w-full"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="space-y-4">
+                            {CATEGORY_ORDER.map(category => {
+                                const categoryProducts = groupedProducts[category];
+                                if (!categoryProducts || categoryProducts.length === 0) return null;
+
+                                const isExpanded = expandedCategories.has(category);
+                                const productCount = categoryProducts.length;
+
+                                return (
+                                    <div key={category} className="rounded-lg border border-gray-200 dark:border-gray-700">
+                                        <button
+                                            onClick={() => toggleCategory(category)}
+                                            className="flex w-full items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-semibold">{CATEGORY_LABELS[category] || category}</span>
+                                                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                                                    {productCount}
+                                                </span>
+                                            </div>
+                                            <svg
+                                                className={`h-5 w-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                                fill="none"
+                                                stroke="currentColor"
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        </button>
+
+                                        {isExpanded && (
+                                            <div className="grid grid-cols-1 gap-3 p-3 pt-0 sm:grid-cols-2">
+                                                {categoryProducts.map((item) => {
+                                                    const inInvoice = invoiceItems.find(i => i.productId === item.id);
+                                                    return (
+                                                        <div
+                                                            key={item.id}
+                                                            className={`rounded-lg border p-3 transition ${inInvoice
+                                                                ? 'border-primary bg-primary/5'
+                                                                : 'border-gray-200 hover:border-primary/50 dark:border-gray-600'
+                                                            }`}
+                                                        >
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="min-w-0 flex-1">
+                                                                    <h3 className="truncate font-medium">{item.name}</h3>
+                                                                    <p className="text-sm text-gray-500">{item.unit}</p>
+                                                                </div>
+                                                                <button
+                                                                    onClick={() => addToInvoice(item)}
+                                                                    className="btn btn-primary btn-sm ml-2 flex-shrink-0"
+                                                                    disabled={inInvoice !== undefined}
+                                                                >
+                                                                    {inInvoice ? 'Added' : 'Add'}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+
+                            {Object.keys(groupedProducts).length === 0 && (
+                                <p className="py-8 text-center text-gray-500">No products found</p>
+                            )}
                         </div>
                     </div>
-                    <div className="mt-4">
-                        <label htmlFor="shipping-charge">Shipping Charge($) </label>
-                        <input
-                            id="shipping-charge"
-                            type="number"
-                            name="shipping-charge"
-                            className="form-input"
-                            placeholder="Shipping Charge"
-                            value={shippingCharge}
-                            onChange={(e) => setShippingCharge(e.target.value)}
-                        />
-                    </div>
-                    <div className="mt-4">
-                        <label htmlFor="payment-method">Accept Payment Via</label>
-                        <select id="payment-method" name="payment-method" className="form-select" defaultValue={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
-                            <option value=" ">Select Payment</option>
-                            <option value="bank">Bank Account</option>
-                            <option value="paypal">Paypal</option>
-                            <option value="upi">UPI Transfer</option>
-                        </select>
-                    </div>
                 </div>
-                <div className="panel">
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-1">
-                        <button type="button" className="btn btn-success w-full gap-2">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ltr:mr-2 rtl:ml-2">
-                                <path
-                                    d="M3.46447 20.5355C4.92893 22 7.28595 22 12 22C16.714 22 19.0711 22 20.5355 20.5355C22 19.0711 22 16.714 22 12C22 11.6585 22 11.4878 21.9848 11.3142C21.9142 10.5049 21.586 9.71257 21.0637 9.09034C20.9516 8.95687 20.828 8.83317 20.5806 8.58578L15.4142 3.41944C15.1668 3.17206 15.0431 3.04835 14.9097 2.93631C14.2874 2.414 13.4951 2.08581 12.6858 2.01515C12.5122 2 12.3415 2 12 2C7.28595 2 4.92893 2 3.46447 3.46447C2 4.92893 2 7.28595 2 12C2 16.714 2 19.0711 3.46447 20.5355Z"
-                                    stroke="currentColor"
-                                    strokeWidth="1.5"
-                                />
-                                <path
-                                    d="M17 22V21C17 19.1144 17 18.1716 16.4142 17.5858C15.8284 17 14.8856 17 13 17H11C9.11438 17 8.17157 17 7.58579 17.5858C7 18.1716 7 19.1144 7 21V22"
-                                    stroke="currentColor"
-                                    strokeWidth="1.5"
-                                />
-                                <path opacity="0.5" d="M7 8H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                            </svg>
-                            Save
-                        </button>
 
-                        <button type="button" className="btn btn-info w-full gap-2">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ltr:mr-2 rtl:ml-2">
-                                <path
-                                    d="M17.4975 18.4851L20.6281 9.09373C21.8764 5.34874 22.5006 3.47624 21.5122 2.48782C20.5237 1.49939 18.6511 2.12356 14.906 3.37189L5.57477 6.48218C3.49295 7.1761 2.45203 7.52305 2.13608 8.28637C2.06182 8.46577 2.01692 8.65596 2.00311 8.84963C1.94433 9.67365 2.72018 10.4495 4.27188 12.0011L4.55451 12.2837C4.80921 12.5384 4.93655 12.6658 5.03282 12.8075C5.22269 13.0871 5.33046 13.4143 5.34393 13.7519C5.35076 13.9232 5.32403 14.1013 5.27057 14.4574C5.07488 15.7612 4.97703 16.4131 5.0923 16.9147C5.32205 17.9146 6.09599 18.6995 7.09257 18.9433C7.59255 19.0656 8.24576 18.977 9.5522 18.7997L9.62363 18.79C9.99191 18.74 10.1761 18.715 10.3529 18.7257C10.6738 18.745 10.9838 18.8496 11.251 19.0285C11.3981 19.1271 11.5295 19.2585 11.7923 19.5213L12.0436 19.7725C13.5539 21.2828 14.309 22.0379 15.1101 21.9985C15.3309 21.9877 15.5479 21.9365 15.7503 21.8474C16.4844 21.5244 16.8221 20.5113 17.4975 18.4851Z"
-                                    stroke="currentColor"
-                                    strokeWidth="1.5"
-                                />
-                                <path opacity="0.5" d="M6 18L21 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                            </svg>
-                            Send Invoice
-                        </button>
+                {/* Invoice Summary */}
+                <div className="lg:col-span-1">
+                    <div className="sticky top-4 space-y-4">
+                        {/* Invoice Details */}
+                        <div className="rounded-lg bg-white p-4 shadow dark:bg-gray-800">
+                            <h2 className="mb-4 text-lg font-bold">Invoice Details</h2>
 
-                        <Link href="/apps/invoice/preview" className="btn btn-primary w-full gap-2">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="ltr:mr-2 rtl:ml-2">
-                                <path
-                                    opacity="0.5"
-                                    d="M3.27489 15.2957C2.42496 14.1915 2 13.6394 2 12C2 10.3606 2.42496 9.80853 3.27489 8.70433C4.97196 6.49956 7.81811 4 12 4C16.1819 4 19.028 6.49956 20.7251 8.70433C21.575 9.80853 22 10.3606 22 12C22 13.6394 21.575 14.1915 20.7251 15.2957C19.028 17.5004 16.1819 20 12 20C7.81811 20 4.97196 17.5004 3.27489 15.2957Z"
-                                    stroke="currentColor"
-                                    strokeWidth="1.5"
-                                />
-                                <path d="M15 12C15 13.6569 13.6569 15 12 15C10.3431 15 9 13.6569 9 12C9 10.3431 10.3431 9 12 9C13.6569 9 15 10.3431 15 12Z" stroke="currentColor" strokeWidth="1.5" />
-                            </svg>
-                            Preview
-                        </Link>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium">Invoice Number</label>
+                                    <input
+                                        type="text"
+                                        className="form-input mt-1 w-full bg-gray-100"
+                                        value={invoice?.invoiceNumber || ''}
+                                        disabled
+                                    />
+                                </div>
 
-                        <button type="button" className="btn btn-secondary w-full gap-2">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ltr:mr-2 rtl:ml-2">
-                                <path
-                                    opacity="0.5"
-                                    d="M17 9.00195C19.175 9.01406 20.3529 9.11051 21.1213 9.8789C22 10.7576 22 12.1718 22 15.0002V16.0002C22 18.8286 22 20.2429 21.1213 21.1215C20.2426 22.0002 18.8284 22.0002 16 22.0002H8C5.17157 22.0002 3.75736 22.0002 2.87868 21.1215C2 20.2429 2 18.8286 2 16.0002L2 15.0002C2 12.1718 2 10.7576 2.87868 9.87889C3.64706 9.11051 4.82497 9.01406 7 9.00195"
-                                    stroke="currentColor"
-                                    strokeWidth="1.5"
-                                    strokeLinecap="round"
-                                ></path>
-                                <path d="M12 2L12 15M12 15L9 11.5M12 15L15 11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"></path>
-                            </svg>
-                            Download
-                        </button>
+                                <div>
+                                    <label className="block text-sm font-medium">Description</label>
+                                    <input
+                                        type="text"
+                                        className="form-input mt-1 w-full"
+                                        placeholder="Enter invoice description..."
+                                        value={description}
+                                        onChange={(e) => setDescription(e.target.value)}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium">Note (optional)</label>
+                                    <textarea
+                                        className="form-textarea mt-1 w-full"
+                                        rows={3}
+                                        placeholder="Add a note to your invoice..."
+                                        value={note}
+                                        onChange={(e) => setNote(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Selected Items */}
+                        <div className="rounded-lg bg-white p-4 shadow dark:bg-gray-800">
+                            <div className="mb-4 flex items-center justify-between">
+                                <h2 className="text-lg font-bold">Selected Items</h2>
+                                {invoiceItems.length > 0 && (
+                                    <button
+                                        onClick={() => setInvoiceItems([])}
+                                        className="text-sm text-red-500 hover:text-red-700"
+                                    >
+                                        Clear All
+                                    </button>
+                                )}
+                            </div>
+
+                            {invoiceItems.length === 0 ? (
+                                <p className="text-gray-500">No items selected yet</p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {invoiceItems.map((item) => (
+                                        <div key={item.productId} className="rounded-lg bg-gray-50 p-3 dark:bg-gray-700">
+                                            <div className="mb-2 flex items-start justify-between">
+                                                <div>
+                                                    <p className="font-medium">{item.productName}</p>
+                                                    <p className="text-xs text-gray-500">{item.unit}</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => removeFromInvoice(item.productId)}
+                                                    className="text-red-500 hover:text-red-700"
+                                                >
+                                                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                            <div className="flex items-center">
+                                                <button
+                                                    onClick={() => updateQuantity(item.productId, -1)}
+                                                    className="flex h-8 w-8 items-center justify-center rounded-l-lg bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500"
+                                                    disabled={item.quantity <= 1}
+                                                >
+                                                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                                                    </svg>
+                                                </button>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    value={item.quantity}
+                                                    onChange={(e) => setQuantity(item.productId, e.target.value)}
+                                                    className="h-8 w-12 border-y border-gray-200 bg-white text-center font-bold dark:border-gray-600 dark:bg-gray-800 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                />
+                                                <button
+                                                    onClick={() => updateQuantity(item.productId, 1)}
+                                                    className="flex h-8 w-8 items-center justify-center rounded-r-lg bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500"
+                                                >
+                                                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {invoiceItems.length > 0 && (
+                                <button
+                                    onClick={handleSubmit}
+                                    className="btn btn-success mt-4 w-full gap-2"
+                                    disabled={isSubmitting}
+                                >
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-5 w-5">
+                                        <path d="M3.46447 20.5355C4.92893 22 7.28595 22 12 22C16.714 22 19.0711 22 20.5355 20.5355C22 19.0711 22 16.714 22 12C22 11.6585 22 11.4878 21.9848 11.3142C21.9142 10.5049 21.586 9.71257 21.0637 9.09034C20.9516 8.95687 20.828 8.83317 20.5806 8.58578L15.4142 3.41944C15.1668 3.17206 15.0431 3.04835 14.9097 2.93631C14.2874 2.414 13.4951 2.08581 12.6858 2.01515C12.5122 2 12.3415 2 12 2C7.28595 2 4.92893 2 3.46447 3.46447C2 4.92893 2 7.28595 2 12C2 16.714 2 19.0711 3.46447 20.5355Z" stroke="currentColor" strokeWidth="1.5" />
+                                        <path d="M17 22V21C17 19.1144 17 18.1716 16.4142 17.5858C15.8284 17 14.8856 17 13 17H11C9.11438 17 8.17157 17 7.58579 17.5858C7 18.1716 7 19.1144 7 21V22" stroke="currentColor" strokeWidth="1.5" />
+                                        <path opacity="0.5" d="M7 8H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                                    </svg>
+                                    {isSubmitting ? 'Saving...' : 'Update Invoice'}
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -610,4 +527,4 @@ const Edit = () => {
     );
 };
 
-export default Edit;
+export default withAuth(InvoiceEdit);

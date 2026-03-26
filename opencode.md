@@ -65,3 +65,10 @@ show - item name - item unit - how many still available, what number that are tr
 - Import shared modules using workspace names: `Laboratory Inventory`
 
 ##
+
+
+Add invoice page i want all of 
+- /apps/invoice/list
+- /apps/invoice/preview
+- /apps/invoice/add
+- /apps/invoice/edit

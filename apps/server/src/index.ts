@@ -14,6 +14,7 @@ import { notificationRoutes } from './presentation/routes/notifications';
 import { reportRoutes } from './presentation/routes/reports';
 import { orderRoutes } from './presentation/routes/orders';
 import { dashboardRoutes } from './presentation/routes/dashboard';
+import { invoiceRoutes } from './presentation/routes/invoices';
 
 // Initialize Winston logger
 const logger = createLogger(config.logging.jsonFormat);
@@ -192,7 +193,8 @@ const buildApp = () => new Elysia()
     .use(notificationRoutes)
     .use(reportRoutes)
     .use(orderRoutes)
-    .use(dashboardRoutes);
+    .use(dashboardRoutes)
+    .use(invoiceRoutes);
 
 // Export type for client
 export type App = ReturnType<typeof buildApp>;

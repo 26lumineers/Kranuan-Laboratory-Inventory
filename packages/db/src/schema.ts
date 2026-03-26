@@ -11,6 +11,14 @@ export const orderStatusEnum = pgEnum('order_status', [
     'CANCELLED',    // Cancelled by user or admin
 ]);
 
+// Invoice status enum
+export const invoiceStatusEnum = pgEnum('invoice_status', [
+    'PENDING',      // Invoice created, waiting for review
+    'APPROVED',     // Approved by admin/superadmin
+    'REJECTED',     // Rejected by admin/superadmin
+    'SUCCESS',      // Invoice completed/fulfilled
+]);
+
 // Product category enum - matches room categories
 export const productCategoryEnum = pgEnum('product_category', [
     'CHEMICAL_CLINIC',    // เคมีคลินิก
@@ -212,6 +220,52 @@ export const orderItems = pgTable(
     })
 );
 
+// =====================
+// INVOICES TABLES
+// =====================
+
+// Invoices - Main invoice table for laboratory requests
+export const invoices = pgTable(
+    'invoices',
+    {
+        id: uuid('id').primaryKey().defaultRandom(),
+        invoiceNumber: varchar('invoice_number', { length: 50 }).notNull().unique(),
+        description: text('description'),
+        status: invoiceStatusEnum('status').default('PENDING').notNull(),
+        createdBy: uuid('created_by')
+            .notNull()
+            .references(() => users.id),
+        note: text('note'),
+        createdAt: timestamp('created_at').defaultNow(),
+        updatedAt: timestamp('updated_at').defaultNow(),
+    },
+    (table) => ({
+        createdByIdx: index('idx_invoices_created_by').on(table.createdBy),
+        statusIdx: index('idx_invoices_status').on(table.status),
+        createdAtIdx: index('idx_invoices_created_at').on(table.createdAt),
+    })
+);
+
+// Invoice Items - Individual items within an invoice
+export const invoiceItems = pgTable(
+    'invoice_items',
+    {
+        id: uuid('id').primaryKey().defaultRandom(),
+        invoiceId: uuid('invoice_id')
+            .notNull()
+            .references(() => invoices.id, { onDelete: 'cascade' }),
+        productId: uuid('product_id')
+            .notNull()
+            .references(() => products.id),
+        quantity: integer('quantity').notNull(),
+        createdAt: timestamp('created_at').defaultNow(),
+    },
+    (table) => ({
+        invoiceIdx: index('idx_invoice_items_invoice').on(table.invoiceId),
+        productIdx: index('idx_invoice_items_product').on(table.productId),
+    })
+);
+
 export type Room = typeof rooms.$inferSelect;
 export type NewRoom = typeof rooms.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -230,6 +284,10 @@ export type OrderItem = typeof orderItems.$inferSelect;
 export type NewOrderItem = typeof orderItems.$inferInsert;
 export type SystemConfig = typeof systemConfig.$inferSelect;
 export type NewSystemConfig = typeof systemConfig.$inferInsert;
+export type Invoice = typeof invoices.$inferSelect;
+export type NewInvoice = typeof invoices.$inferInsert;
+export type InvoiceItem = typeof invoiceItems.$inferSelect;
+export type NewInvoiceItem = typeof invoiceItems.$inferInsert;
 
 // Table singleton for Elysia-Drizzle integration
 export const table = {
@@ -244,6 +302,8 @@ export const table = {
     systemConfig,
     orders,
     orderItems,
+    invoices,
+    invoiceItems,
 } as const;
 
 export type Table = typeof table;
